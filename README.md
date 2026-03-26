@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Thought Partner
 
-## Getting Started
+Thought Partner is a spatial AI thinking interface built with Next.js, TypeScript, and a custom visual system. It turns a seed idea into a navigable thought graph with related ideas, tensions, and perspective shifts.
 
-First, run the development server:
+## Environment Setup
+
+Create a `.env.local` file in the project root.
+
+You can configure either OpenAI or Anthropic (only one provider is required).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Provider selection: "openai" or "anthropic"
+AI_PROVIDER=openai
+
+# OpenAI option
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4o-mini
+
+# Anthropic option
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MODEL=claude-3-5-sonnet-latest
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Notes:
+- You only need one provider configured at a time.
+- If no provider is configured, the app automatically uses local mock fallback data so the prototype remains fully interactive.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Run Locally
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+Then open `http://localhost:3000`.
 
-To learn more about Next.js, take a look at the following resources:
+## Architecture (Brief)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Client: `components/ThoughtCanvas.tsx` handles interactions, panning/focus, generation states, and graph updates.
+- API route: `app/api/thought/route.ts` validates requests, orchestrates generation modes, and returns typed JSON.
+- Provider layer: `lib/ai/provider-config.ts` selects OpenAI or Anthropic from environment configuration.
+- Structured output: Zod schemas enforce predictable response shape for initial and interaction modes.
+- Graph rendering: `lib/graph/graph-layout.ts` + `components/ConnectionsSVG.tsx` place nodes/edges and render a readable spatial canvas.
