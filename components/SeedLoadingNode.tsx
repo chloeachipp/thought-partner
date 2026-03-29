@@ -13,12 +13,12 @@ export default function SeedLoadingNode({
 }: SeedLoadingNodeProps) {
   const statusText = isGenerating
     ? generationPhase === "related"
-      ? "Forming perspectives…"
+      ? "Finding directions…"
       : generationPhase === "challenge"
-        ? "Exploring tensions…"
+        ? "Surfacing tension…"
         : generationPhase === "perspective"
-          ? "Synthesizing viewpoints…"
-          : "Structuring space…"
+          ? "Shifting the lens…"
+          : "Opening space…"
     : undefined;
 
   return (

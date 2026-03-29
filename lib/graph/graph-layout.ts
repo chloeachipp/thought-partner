@@ -129,14 +129,17 @@ function getPerpendicularVector(forward: Point): Point {
 }
 
 /**
- * Evenly-spaced branch angles starting from the top (-PI/2), going clockwise.
- * For 8 branches they map to:
- *   top, top-right, right, bottom-right, bottom, bottom-left, left, top-left.
+ * Evenly-spaced branch angles starting from the top (-PI/2), going clockwise,
+ * with a small per-branch offset to break perfect radial symmetry.
+ * Offsets are index-derived (not Math.random) so the layout is stable.
  */
 function getBranchAngles(count: number): number[] {
+  // Max ±0.055 rad ≈ ±3.2° — subtle enough not to cause inter-branch crowding
+  // at typical node counts (4-8 branches), visible enough to break the compass-rose look.
+  const JITTER = [0.055, -0.048, 0.038, -0.055, 0.044, -0.036, 0.052, -0.042];
   return Array.from(
     { length: count },
-    (_, i) => -Math.PI / 2 + (2 * Math.PI * i) / count,
+    (_, i) => -Math.PI / 2 + (2 * Math.PI * i) / count + (JITTER[i % JITTER.length] ?? 0),
   );
 }
 
@@ -418,11 +421,29 @@ export function layoutNodesAsMindMap(
   enforceRootSafeBox(allNodes, center, rootSafeBox, positionMap);
 
   // Return only the original `nodes` (not the virtual seed) with positions applied.
+  //
+  // A small deterministic position nudge is applied per node to break the
+  // perfectly perpendicular sibling alignment that makes the layout feel
+  // grid-like.  Values are derived from the node id string so the same node
+  // always lands in the same place across renders.  Nudge is bounded at ±9px
+  // (X) and ±7px (Y) — small relative to NODE_WIDTH (248) and LEVEL_DISTANCE
+  // (290), so no sibling overlap can occur even in worst-case configurations.
+  function idNudge(id: string, salt = 0): number {
+    let h = salt ^ 0x5f3759df;
+    for (let i = 0; i < id.length; i++) h = (Math.imul(31, h) + id.charCodeAt(i)) | 0;
+    return (((h >>> 0) % 20001) / 10000) - 1; // maps to [-1, 1]
+  }
+
   return nodes.map((node) => {
     if (node.id === seed!.id) return { ...node, x: center.x, y: center.y };
     const pos = positionMap.get(node.id);
     if (!pos) return node;
-    return { ...node, x: pos.x, y: pos.y };
+    // Small deterministic nudge to break perfect perpendicular sibling alignment.
+    // Bounded at ±8px (X) and ±6px (Y) — enough to feel organic without pulling
+    // nodes visibly off their spoke center lines.
+    const nx = idNudge(node.id, 0) * 8;
+    const ny = idNudge(node.id, 1) * 6;
+    return { ...node, x: pos.x + nx, y: pos.y + ny };
   });
 }
 
@@ -514,8 +535,10 @@ export function getCurvedEdgePath(source: Point, target: Point): string {
 /**
  * Approximate half-dimensions of the seed display card at the canvas origin.
  * Used by getNodeAnchorPoint to clip seed edges to the card boundary.
+ * The seed card renders at maxWidth 440px with 32px horizontal padding;
+ * at typical text lengths the card is ~340–380px wide — use 190px half-width.
  */
-const SEED_HALF_W = 230;
+const SEED_HALF_W = 190;
 const SEED_HALF_H = 44;
 
 /**
@@ -573,12 +596,31 @@ export function getBezierPath(
   // Tension scales with distance but is capped so long edges stay readable.
   const tension = Math.min(Math.max(dist * 0.32, 50), 160);
 
-  const c1x = srcAnchor.x + ux * tension;
-  const c1y = srcAnchor.y + uy * tension;
-  const c2x = tgtAnchor.x - ux * tension;
-  const c2y = tgtAnchor.y - uy * tension;
+  // Lateral bow: each edge has its own gentle curve personality.
+  // Derived from anchor positions so the same pair of nodes always produces
+  // the same bow — no jitter on re-render, fully deterministic.
+  // Perpendicular direction relative to the edge.
+  const px = -uy;
+  const py =  ux;
+  // High-frequency sinusoidal hash maps the edge's geometric fingerprint to [-1, 1].
+  const s = Math.sin(srcAnchor.x * 0.00137 + (srcAnchor.y + tgtAnchor.y * 0.3) * 0.00173) * 43758.5453;
+  const bow = ((s - Math.floor(s)) * 2 - 1) * tension * 0.22; // ±22% of tension
 
-  return `M ${srcAnchor.x} ${srcAnchor.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${tgtAnchor.x} ${tgtAnchor.y}`;
+  // Both control points bow the same direction → simple arc, not S-curve.
+  // The bow magnitude tops out at ±22px for the longest edges — subtle.
+  const c1x = srcAnchor.x + ux * tension + px * bow;
+  const c1y = srcAnchor.y + uy * tension + py * bow;
+  const c2x = tgtAnchor.x - ux * tension + px * bow;
+  const c2y = tgtAnchor.y - uy * tension + py * bow;
+
+  // Round all coordinates to 3 decimal places so SSR and client emit
+  // byte-identical path strings regardless of floating-point precision.
+  const r = (n: number) => Math.round(n * 1000) / 1000;
+  return (
+    `M ${r(srcAnchor.x)} ${r(srcAnchor.y)} ` +
+    `C ${r(c1x)} ${r(c1y)}, ${r(c2x)} ${r(c2y)}, ` +
+    `${r(tgtAnchor.x)} ${r(tgtAnchor.y)}`
+  );
 }
 
 export function createThoughtNode(

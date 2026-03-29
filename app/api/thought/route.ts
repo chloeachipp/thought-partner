@@ -3,39 +3,35 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   generateInitialMockGraph,
-  generateMockChallenge,
-  generateMockExpansion,
-  generateMockPerspective,
+  generateInitialVerticalWorld,
+  generateMockVerticalExpansion,
+  generateMockVerticalNode,
 } from "@/lib/ai/mock-generator";
-import {
-  buildChallengePrompt,
-  buildExpandPrompt,
-  buildInitialPrompt,
-  buildPerspectivePrompt,
-} from "@/lib/ai/prompt-builders";
+import { buildExpandPrompt, buildInitialPrompt } from "@/lib/ai/prompt-builders";
 import { getProviderConfig } from "@/lib/ai/provider-config";
-import type {
-  AIMetadata,
-  GenerationMode,
-  NodeContent,
-  PerspectiveType,
-  ThoughtGraphResponse,
-  ThoughtGraphMeta,
-  ThoughtRequestMode,
-  ThoughtStatusMeta,
+import {
+  CREATIVE_VERTICALS,
+  type CreativeMode,
+  type CreativeVertical,
+  type GenerationMode,
+  type NodeContent,
+  type PerspectiveType,
+  type ThoughtGraphMeta,
+  type ThoughtGraphResponse,
+  type ThoughtRequestMode,
+  type ThoughtStatusMeta,
 } from "@/types/thought";
 
+const creativeVerticalSchema = z.enum(CREATIVE_VERTICALS);
 const perspectiveTypeSchema = z.enum(["user", "business", "ethical", "technical", "creative"]);
-const nodeKindSchema = z.enum(["seed", "related", "challenge", "perspective"]);
-const confidenceSchema = z.enum(["low", "medium", "high"]);
-const modeSchema = z.enum(["initial", "expand", "challenge", "perspective"]);
-
-// Legacy aliases to keep existing clients working while the new contract rolls out.
 const legacyInteractionSchema = z.enum(["expands", "challenges", "reframes"]);
+const modeSchema = z.enum(["initial", "expand", "challenge", "perspective", "direction"]);
+const creativeModeSchema = z.enum(["concept", "visual", "emotional"]);
 
 const nearbyNodeSchema = z.object({
   label: z.string(),
   kind: z.string().optional(),
+  vertical: creativeVerticalSchema.nullable().optional(),
   perspective: perspectiveTypeSchema.nullable().optional(),
 });
 
@@ -44,99 +40,63 @@ const requestSchema = z.union([
     mode: modeSchema,
     seed: z.string().optional(),
     label: z.string().optional(),
+    vertical: creativeVerticalSchema.optional(),
     nearbyNodes: z.array(nearbyNodeSchema).optional(),
+    creativeMode: creativeModeSchema.optional(),
   }),
   z.object({
     mode: z.literal("seed"),
     seed: z.string(),
     nearbyNodes: z.array(nearbyNodeSchema).optional(),
+    creativeMode: creativeModeSchema.optional(),
   }),
   z.object({
     mode: z.literal("interaction"),
     interaction: legacyInteractionSchema,
     label: z.string(),
+    vertical: creativeVerticalSchema.optional(),
     nearbyNodes: z.array(nearbyNodeSchema).optional(),
+    creativeMode: creativeModeSchema.optional(),
   }),
 ]);
 
-const aiMetadataSchema = z.object({
-  tone: z.string(),
-  confidence: confidenceSchema,
-});
-
-const seedNodeOutputSchema = z.object({
+const initialNodeOutputSchema = z.object({
+  vertical: creativeVerticalSchema,
   label: z.string(),
   description: z.string(),
 });
 
-const relatedNodeOutputSchema = z.object({
-  label: z.string(),
-  description: z.string(),
-});
-
-const challengeNodeOutputSchema = z.object({
-  label: z.string(),
-  description: z.string(),
-});
-
-const perspectiveNodeOutputSchema = z.object({
-  type: perspectiveTypeSchema,
+const expandNodeOutputSchema = z.object({
   label: z.string(),
   description: z.string(),
 });
 
 const initialOutputSchema = z.object({
-  seed: seedNodeOutputSchema,
-  related: z.array(relatedNodeOutputSchema),
-  challenge: challengeNodeOutputSchema,
-  perspectives: z.array(perspectiveNodeOutputSchema),
+  nodes: z.array(initialNodeOutputSchema).min(7).max(10),
 });
 
 const expandOutputSchema = z.object({
-  related: z.array(relatedNodeOutputSchema),
+  nodes: z.array(expandNodeOutputSchema).min(4).max(8),
 });
 
-const challengeOutputSchema = z.object({
-  challenge: challengeNodeOutputSchema,
-});
-
-const perspectiveOutputSchema = z.object({
-  perspectives: z.array(perspectiveNodeOutputSchema),
-});
-
-type InitialSuccessResponse = {
+type ApiInitialResponse = {
   mode: "initial";
+  nodes: NodeContent[];
   graph: ThoughtGraphResponse;
   status: ThoughtStatusMeta;
-};
-
-type ExpandSuccessResponse = {
-  mode: "expand";
-  nodes: NodeContent[];
-  aiMeta?: AIMetadata;
-  status: ThoughtStatusMeta;
   meta: ThoughtGraphMeta;
-  // Kept for legacy compatibility with current client.
-  node?: NodeContent;
 };
 
-type ChallengeSuccessResponse = {
-  mode: "challenge";
+type ApiExpandResponse = {
+  mode: Exclude<ThoughtRequestMode, "initial">;
+  nodes: NodeContent[];
   node: NodeContent;
-  aiMeta?: AIMetadata;
+  vertical: CreativeVertical;
   status: ThoughtStatusMeta;
   meta: ThoughtGraphMeta;
 };
 
-type PerspectiveSuccessResponse = {
-  mode: "perspective";
-  nodes: NodeContent[];
-  aiMeta?: AIMetadata;
-  status: ThoughtStatusMeta;
-  meta: ThoughtGraphMeta;
-  // Kept for legacy compatibility with current client.
-  node?: NodeContent;
-};
+type ApiSuccessResponse = ApiInitialResponse | ApiExpandResponse;
 
 type ErrorResponse = {
   error: string;
@@ -144,40 +104,21 @@ type ErrorResponse = {
   details?: unknown;
 };
 
-type ApiSuccessResponse =
-  | InitialSuccessResponse
-  | ExpandSuccessResponse
-  | ChallengeSuccessResponse
-  | PerspectiveSuccessResponse;
-
 type ProviderConfig = NonNullable<ReturnType<typeof getProviderConfig>>;
+
+type NearbyNode = z.infer<typeof nearbyNodeSchema>;
 
 type NormalizedRequest = {
   mode: ThoughtRequestMode;
   seed?: string;
   selectedLabel?: string;
-  nearbyNodes?: Array<z.infer<typeof nearbyNodeSchema>>;
+  selectedVertical?: CreativeVertical;
+  nearbyNodes?: NearbyNode[];
+  creativeMode?: CreativeMode;
 };
 
-function toGraphNode(
-  input: { label: string; description: string },
-  kind: "seed" | "related" | "challenge",
-): NodeContent {
-  return {
-    label: input.label.trim(),
-    description: input.description.trim(),
-    kind,
-    perspective: null,
-  };
-}
-
-function toPerspectiveNode(input: z.infer<typeof perspectiveNodeOutputSchema>): NodeContent {
-  return {
-    label: input.label.trim(),
-    description: input.description.trim(),
-    kind: "perspective",
-    perspective: input.type,
-  };
+function toGenerationMode(fallbackUsed: boolean): GenerationMode {
+  return fallbackUsed ? "fallback" : "provider";
 }
 
 function createStatus(
@@ -192,32 +133,48 @@ function createStatus(
   };
 }
 
-function toGenerationMode(fallbackUsed: boolean): GenerationMode {
-  return fallbackUsed ? "fallback" : "provider";
-}
-
-function withRuntimeMeta(
-  graph: ThoughtGraphResponse,
-  mode: ThoughtRequestMode,
-  providerUsed: string | null,
-  fallbackUsed: boolean,
-): ThoughtGraphResponse {
-  return {
-    ...graph,
-    meta: {
-      generationMode: toGenerationMode(fallbackUsed),
-      provider: providerUsed,
-      fallback: fallbackUsed,
-    },
-    aiMeta: graph.aiMeta,
-  };
-}
-
-function toLegacyMeta(status: ThoughtStatusMeta): ThoughtGraphMeta {
+function toMeta(status: ThoughtStatusMeta): ThoughtGraphMeta {
   return {
     generationMode: toGenerationMode(status.fallbackUsed),
     provider: status.providerUsed,
     fallback: status.fallbackUsed,
+  };
+}
+
+function toNodeContent(
+  input: { label: string; description?: string },
+  vertical: CreativeVertical | null,
+): NodeContent {
+  return {
+    label: input.label.trim(),
+    description: (input.description ?? "").trim(),
+    kind: "related",
+    vertical,
+    perspective: null,
+  };
+}
+
+function toLegacyGraph(seed: string, nodes: NodeContent[], meta?: ThoughtGraphMeta): ThoughtGraphResponse {
+  return {
+    seed: {
+      label: seed.trim(),
+      description: "starting point",
+      kind: "seed",
+      vertical: null,
+      perspective: null,
+    },
+    related: nodes.slice(0, 3).map((node) => ({ ...node, kind: "related" })),
+    challenge: {
+      ...(nodes[3] ?? nodes[0] ?? generateMockVerticalNode(seed, "Emotion")),
+      kind: "challenge",
+      perspective: null,
+    },
+    perspectives: nodes.slice(4, 7).map((node) => ({
+      ...node,
+      kind: "perspective",
+      perspective: null,
+    })),
+    meta,
   };
 }
 
@@ -227,20 +184,21 @@ function normalizeRequest(parsed: z.infer<typeof requestSchema>): NormalizedRequ
       mode: "initial",
       seed: parsed.seed,
       nearbyNodes: parsed.nearbyNodes,
+      creativeMode: parsed.creativeMode,
     };
   }
 
   if (parsed.mode === "interaction") {
-    const modeMap: Record<z.infer<typeof legacyInteractionSchema>, ThoughtRequestMode> = {
-      expands: "expand",
-      challenges: "challenge",
-      reframes: "perspective",
-    };
-
     return {
-      mode: modeMap[parsed.interaction],
+      mode: parsed.interaction === "expands"
+        ? "expand"
+        : parsed.interaction === "challenges"
+          ? "challenge"
+          : "perspective",
       selectedLabel: parsed.label,
+      selectedVertical: parsed.vertical,
       nearbyNodes: parsed.nearbyNodes,
+      creativeMode: parsed.creativeMode,
     };
   }
 
@@ -248,7 +206,9 @@ function normalizeRequest(parsed: z.infer<typeof requestSchema>): NormalizedRequ
     mode: parsed.mode,
     seed: parsed.seed,
     selectedLabel: parsed.label,
+    selectedVertical: parsed.vertical,
     nearbyNodes: parsed.nearbyNodes,
+    creativeMode: parsed.creativeMode,
   };
 }
 
@@ -264,13 +224,71 @@ function validateNormalizedRequest(normalized: NormalizedRequest): string | null
   return null;
 }
 
+function resolveVertical(normalized: NormalizedRequest): CreativeVertical {
+  if (normalized.selectedVertical) {
+    return normalized.selectedVertical;
+  }
+
+  const nearbyMatch = normalized.nearbyNodes?.find(
+    (node) => node.label === normalized.selectedLabel && node.vertical,
+  );
+
+  return nearbyMatch?.vertical ?? "Narrative";
+}
+
+function normalizeInitialNodes(seed: string, rawNodes: Array<z.infer<typeof initialNodeOutputSchema>>): NodeContent[] {
+  const usedLabels = new Set<string>();
+  const byVertical = new Map<CreativeVertical, NodeContent>();
+
+  for (const node of rawNodes) {
+    if (byVertical.has(node.vertical)) continue;
+    const label = node.label.trim();
+    if (!label || usedLabels.has(label.toLowerCase())) continue;
+    usedLabels.add(label.toLowerCase());
+    byVertical.set(node.vertical, toNodeContent(node, node.vertical));
+  }
+
+  return CREATIVE_VERTICALS.map((vertical) => {
+    const existing = byVertical.get(vertical);
+    return existing ?? generateMockVerticalNode(seed, vertical, usedLabels);
+  });
+}
+
+function normalizeExpandNodes(
+  label: string,
+  vertical: CreativeVertical,
+  rawNodes: Array<z.infer<typeof expandNodeOutputSchema>>,
+  count = 6,
+): NodeContent[] {
+  const usedLabels = new Set<string>();
+  const nodes: NodeContent[] = [];
+
+  for (const rawNode of rawNodes) {
+    const trimmed = rawNode.label.trim();
+    if (!trimmed || usedLabels.has(trimmed.toLowerCase())) continue;
+    usedLabels.add(trimmed.toLowerCase());
+    nodes.push(toNodeContent(rawNode, vertical));
+    if (nodes.length >= count) break;
+  }
+
+  const fallback = generateMockVerticalExpansion(label, vertical, count);
+  for (const node of fallback) {
+    if (nodes.length >= count) break;
+    const key = node.label.toLowerCase();
+    if (usedLabels.has(key)) continue;
+    usedLabels.add(key);
+    nodes.push(node);
+  }
+
+  return nodes.slice(0, count);
+}
+
 function isRecoverableProviderError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }
 
   const text = `${error.name} ${error.message}`.toLowerCase();
-
   return [
     "timeout",
     "timed out",
@@ -287,85 +305,31 @@ function isRecoverableProviderError(error: unknown): boolean {
   ].some((token) => text.includes(token));
 }
 
-function mockExpandNodes(selectedLabel: string, count = 3): NodeContent[] {
-  const nodes: NodeContent[] = [];
-
-  for (let i = 0; i < count; i += 1) {
-    nodes.push(generateMockExpansion(`${selectedLabel} ${i + 1}`));
-  }
-
-  return nodes;
-}
-
-function mockPerspectiveNodes(selectedLabel: string, count = 3): NodeContent[] {
-  const nodes: NodeContent[] = [];
-  const seen = new Set<PerspectiveType>();
-  let attempts = 0;
-
-  while (nodes.length < count && attempts < 16) {
-    const node = generateMockPerspective(selectedLabel);
-    attempts += 1;
-
-    if (!node.perspective || seen.has(node.perspective)) {
-      continue;
-    }
-
-    seen.add(node.perspective);
-    nodes.push(node);
-  }
-
-  while (nodes.length < count) {
-    nodes.push(generateMockPerspective(selectedLabel));
-  }
-
-  return nodes;
-}
-
-function fallbackInitial(seed: string): InitialSuccessResponse {
-  const graph = generateInitialMockGraph(seed);
+function fallbackInitial(seed: string): ApiInitialResponse {
+  const nodes = generateInitialVerticalWorld(seed);
   const status = createStatus("initial", null, true);
+  const meta = toMeta(status);
 
   return {
     mode: "initial",
-    graph: withRuntimeMeta(graph, "initial", null, true),
-    status,
-  };
-}
-
-function fallbackExpand(selectedLabel: string): ExpandSuccessResponse {
-  const nodes = mockExpandNodes(selectedLabel, 3);
-  const status = createStatus("expand", null, true);
-
-  return {
-    mode: "expand",
     nodes,
-    node: nodes[0],
+    graph: toLegacyGraph(seed, nodes, meta),
     status,
-    meta: toLegacyMeta(status),
+    meta,
   };
 }
 
-function fallbackChallenge(selectedLabel: string): ChallengeSuccessResponse {
-  const status = createStatus("challenge", null, true);
+function fallbackExpand(mode: Exclude<ThoughtRequestMode, "initial">, label: string, vertical: CreativeVertical): ApiExpandResponse {
+  const nodes = generateMockVerticalExpansion(label, vertical, 6);
+  const status = createStatus(mode, null, true);
 
   return {
-    mode: "challenge",
-    node: generateMockChallenge(selectedLabel),
-    status,
-    meta: toLegacyMeta(status),
-  };
-}
-
-function fallbackPerspective(selectedLabel: string): PerspectiveSuccessResponse {
-  const nodes = mockPerspectiveNodes(selectedLabel, 3);
-  const status = createStatus("perspective", null, true);
-
-  return {
-    mode: "perspective",
+    mode,
     nodes,
-    node: nodes[0],
+    node: nodes[0]!,
+    vertical,
     status,
-    meta: toLegacyMeta(status),
+    meta: toMeta(status),
   };
 }
 
@@ -374,115 +338,66 @@ function fallbackByMode(normalized: NormalizedRequest): ApiSuccessResponse {
     return fallbackInitial(normalized.seed ?? "");
   }
 
-  if (normalized.mode === "expand") {
-    return fallbackExpand(normalized.selectedLabel ?? "");
-  }
-
-  if (normalized.mode === "challenge") {
-    return fallbackChallenge(normalized.selectedLabel ?? "");
-  }
-
-  return fallbackPerspective(normalized.selectedLabel ?? "");
+  return fallbackExpand(
+    normalized.mode,
+    normalized.selectedLabel ?? "",
+    resolveVertical(normalized),
+  );
 }
 
 async function generateInitial(
   providerConfig: ProviderConfig,
   seed: string,
-  nearbyNodes?: Array<z.infer<typeof nearbyNodeSchema>>,
-): Promise<InitialSuccessResponse> {
+  nearbyNodes?: NearbyNode[],
+  creativeMode?: CreativeMode,
+): Promise<ApiInitialResponse> {
   const { object } = await generateObject({
     model: providerConfig.model,
     schema: initialOutputSchema,
-    temperature: 0.6,
-    prompt: buildInitialPrompt(seed, nearbyNodes),
+    temperature: 0.68,
+    prompt: buildInitialPrompt(seed, nearbyNodes, creativeMode),
   });
 
-  const graph: ThoughtGraphResponse = {
-    seed: toGraphNode(object.seed, "seed"),
-    related: object.related.slice(0, 3).map((node) => toGraphNode(node, "related")),
-    challenge: toGraphNode(object.challenge, "challenge"),
-    perspectives: object.perspectives.slice(0, 3).map(toPerspectiveNode),
-  };
-
+  const nodes = normalizeInitialNodes(seed, object.nodes);
   const providerUsed = `${providerConfig.provider}:${providerConfig.modelName}`;
+  const status = createStatus("initial", providerUsed, false);
+  const meta = toMeta(status);
 
   return {
     mode: "initial",
-    graph: withRuntimeMeta(graph, "initial", providerUsed, false),
-    status: createStatus("initial", providerUsed, false),
+    nodes,
+    graph: toLegacyGraph(seed, nodes, meta),
+    status,
+    meta,
   };
 }
 
 async function generateExpand(
   providerConfig: ProviderConfig,
+  mode: Exclude<ThoughtRequestMode, "initial">,
   selectedLabel: string,
-  nearbyNodes?: Array<z.infer<typeof nearbyNodeSchema>>,
-): Promise<ExpandSuccessResponse> {
+  selectedVertical: CreativeVertical,
+  nearbyNodes?: NearbyNode[],
+  creativeMode?: CreativeMode,
+): Promise<ApiExpandResponse> {
   const { object } = await generateObject({
     model: providerConfig.model,
     schema: expandOutputSchema,
-    temperature: 0.65,
-    prompt: buildExpandPrompt(selectedLabel, nearbyNodes),
+    temperature: 0.72,
+    prompt: buildExpandPrompt(selectedLabel, selectedVertical, nearbyNodes, creativeMode),
   });
 
-  const nodes = object.related.slice(0, 3).map((node) => toGraphNode(node, "related"));
+  const nodes = normalizeExpandNodes(selectedLabel, selectedVertical, object.nodes, 6);
   const providerUsed = `${providerConfig.provider}:${providerConfig.modelName}`;
-  const status = createStatus("expand", providerUsed, false);
+  const status = createStatus(mode, providerUsed, false);
 
   return {
-    mode: "expand",
+    mode,
     nodes,
-    node: nodes[0],
+    node: nodes[0]!,
+    vertical: selectedVertical,
     status,
-    meta: toLegacyMeta(status),
-  };
-}
-
-async function generateChallenge(
-  providerConfig: ProviderConfig,
-  selectedLabel: string,
-  nearbyNodes?: Array<z.infer<typeof nearbyNodeSchema>>,
-): Promise<ChallengeSuccessResponse> {
-  const { object } = await generateObject({
-    model: providerConfig.model,
-    schema: challengeOutputSchema,
-    temperature: 0.6,
-    prompt: buildChallengePrompt(selectedLabel, nearbyNodes),
-  });
-
-  const providerUsed = `${providerConfig.provider}:${providerConfig.modelName}`;
-  const status = createStatus("challenge", providerUsed, false);
-
-  return {
-    mode: "challenge",
-    node: toGraphNode(object.challenge, "challenge"),
-    status,
-    meta: toLegacyMeta(status),
-  };
-}
-
-async function generatePerspective(
-  providerConfig: ProviderConfig,
-  selectedLabel: string,
-  nearbyNodes?: Array<z.infer<typeof nearbyNodeSchema>>,
-): Promise<PerspectiveSuccessResponse> {
-  const { object } = await generateObject({
-    model: providerConfig.model,
-    schema: perspectiveOutputSchema,
-    temperature: 0.7,
-    prompt: buildPerspectivePrompt(selectedLabel, nearbyNodes),
-  });
-
-  const nodes = object.perspectives.slice(0, 3).map(toPerspectiveNode);
-  const providerUsed = `${providerConfig.provider}:${providerConfig.modelName}`;
-  const status = createStatus("perspective", providerUsed, false);
-
-  return {
-    mode: "perspective",
-    nodes,
-    node: nodes[0],
-    status,
-    meta: toLegacyMeta(status),
+    meta: toMeta(status),
   };
 }
 
@@ -491,18 +406,22 @@ async function generateWithProvider(
   normalized: NormalizedRequest,
 ): Promise<ApiSuccessResponse> {
   if (normalized.mode === "initial") {
-    return generateInitial(providerConfig, normalized.seed ?? "", normalized.nearbyNodes);
+    return generateInitial(
+      providerConfig,
+      normalized.seed ?? "",
+      normalized.nearbyNodes,
+      normalized.creativeMode,
+    );
   }
 
-  if (normalized.mode === "expand") {
-    return generateExpand(providerConfig, normalized.selectedLabel ?? "", normalized.nearbyNodes);
-  }
-
-  if (normalized.mode === "challenge") {
-    return generateChallenge(providerConfig, normalized.selectedLabel ?? "", normalized.nearbyNodes);
-  }
-
-  return generatePerspective(providerConfig, normalized.selectedLabel ?? "", normalized.nearbyNodes);
+  return generateExpand(
+    providerConfig,
+    normalized.mode,
+    normalized.selectedLabel ?? "",
+    resolveVertical(normalized),
+    normalized.nearbyNodes,
+    normalized.creativeMode,
+  );
 }
 
 export async function POST(request: Request) {
@@ -546,7 +465,6 @@ export async function POST(request: Request) {
       if (isRecoverableProviderError(providerError)) {
         return NextResponse.json<ApiSuccessResponse>(fallbackByMode(normalized));
       }
-
       throw providerError;
     }
   } catch (error) {

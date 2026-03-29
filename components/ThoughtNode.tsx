@@ -19,7 +19,16 @@ export interface ThoughtNodeProps {
   onExpand?: (node: NodeData) => void;
   onChallenge?: (node: NodeData) => void;
   onShiftPerspective?: (node: NodeData) => void;
+  onDirectionExpand?: (node: NodeData) => void;
 }
+
+// Entry animations per node kind — each interaction mode has its own cinematic register
+const ENTRY_ANIM: Record<ThoughtNodeType, { name: string; dur: string; ease: string }> = {
+  seed:        { name: "pop-in",           dur: "0.56s", ease: "var(--ease-out)"    },
+  related:     { name: "node-explore-in",  dur: "0.72s", ease: "var(--ease-smooth)" },
+  challenge:   { name: "node-disrupt-in",  dur: "0.56s", ease: "var(--ease-out)"    },
+  perspective: { name: "node-reframe-in",  dur: "0.88s", ease: "var(--ease-smooth)" },
+};
 
 // Maps to CSS token names defined in globals.css
 const TYPE_TEXT_VAR: Record<ThoughtNodeType, string> = {
@@ -37,10 +46,27 @@ const TYPE_DOT_VAR: Record<ThoughtNodeType, string> = {
 };
 
 const TYPE_TOOLTIPS: Record<ThoughtNodeType, string> = {
-  seed: "The originating thought",
-  related: "Adjacent concept worth exploring",
-  challenge:   "Push back — what if the opposite is true?",
-  perspective: "A different vantage point",
+  seed: "The originating idea",
+  related: "A direction worth following",
+  challenge:   "A productive friction — what if this is wrong?",
+  perspective: "A different lens on the same idea",
+};
+
+// Display labels for node kinds
+const KIND_LABEL: Record<string, string> = {
+  seed: "Origin",
+  related: "Direction",
+  challenge: "Tension",
+  perspective: "Reframe",
+};
+
+// Display labels for perspective subtypes
+const PERSPECTIVE_LABEL: Record<string, string> = {
+  user: "Mood",
+  business: "Context",
+  ethical: "Question",
+  technical: "Visual direction",
+  creative: "Concept",
 };
 
 export default function ThoughtNode({
@@ -58,6 +84,7 @@ export default function ThoughtNode({
   onExpand,
   onChallenge,
   onShiftPerspective,
+  onDirectionExpand,
 }: ThoughtNodeProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -95,14 +122,14 @@ export default function ThoughtNode({
         className={className}
         style={{
           position: "absolute",
-          left: `${node.x}px`,
-          top: `${node.y}px`,
+          left: `${Math.round(node.x * 1000) / 1000}px`,
+          top: `${Math.round(node.y * 1000) / 1000}px`,
           transform: visible
             ? "translate(-50%, -50%) scale(1)"
             : "translate(-50%, -50%) scale(0.84)",
           width,
           transition: `opacity 0.5s ease ${node.delay}s, transform 0.55s var(--ease-spring) ${node.delay}s`,
-          animation: visible ? `pop-in 0.48s var(--ease-out) ${node.delay}s both` : "none",
+          animation: visible ? `${ENTRY_ANIM[node.kind].name} ${ENTRY_ANIM[node.kind].dur} ${ENTRY_ANIM[node.kind].ease} ${node.delay}s both` : "none",
           pointerEvents: visible ? "auto" : "none",
           zIndex: 5,
           opacity: visible ? (dimmed ? 0.34 : 1) : 0,
@@ -117,7 +144,7 @@ export default function ThoughtNode({
             selected ? "node-selected" : "",
             generating ? "node-generating" : "",
           ].join(" ")}
-          style={{ borderRadius: "var(--r-lg)", padding: "16px 16px 14px" }}
+          style={{ borderRadius: "var(--r-xl)", padding: "16px 18px 14px" }}
         >
           {/* Type row */}
           {showLabels ? (
@@ -140,10 +167,9 @@ export default function ThoughtNode({
                   className="type-label"
                   style={{ color: TYPE_TEXT_VAR[node.kind] }}
                 >
-                  {node.perspective ?? node.kind}
+                  {PERSPECTIVE_LABEL[node.perspective ?? ""] ?? KIND_LABEL[node.kind] ?? node.kind}
                 </span>
               </span>
-              <span className="node-depth">Depth {node.depth}</span>
             </div>
           ) : null}
 
@@ -161,7 +187,7 @@ export default function ThoughtNode({
               disabled={generating}
               onClick={(event) => stopAndRun(event, onExpand)}
             >
-              Expand
+              Explore
             </button>
             <button
               type="button"
@@ -169,7 +195,7 @@ export default function ThoughtNode({
               disabled={generating}
               onClick={(event) => stopAndRun(event, onChallenge)}
             >
-              Challenge
+              Disrupt
             </button>
             <button
               type="button"
@@ -177,7 +203,15 @@ export default function ThoughtNode({
               disabled={generating}
               onClick={(event) => stopAndRun(event, onShiftPerspective)}
             >
-              Shift perspective
+              Reframe
+            </button>
+            <button
+              type="button"
+              className="node-action node-action-direction"
+              disabled={generating}
+              onClick={(event) => stopAndRun(event, onDirectionExpand)}
+            >
+              Dive in
             </button>
           </div>
         </div>

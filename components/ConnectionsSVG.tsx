@@ -5,6 +5,10 @@ import type { NodeData, ThoughtEdge } from "@/types/thought";
 
 interface Props {
   seedId: string;
+  /** World-space coordinate to use as the seed anchor when drawing edges.
+   * When the world container is panned, pass `{ x: -pan.x, y: -pan.y }` so
+   * edges originate from the seed's true viewport-center position. */
+  seedPosition?: { x: number; y: number };
   nodes: NodeData[];
   edges: ThoughtEdge[];
   visible: boolean;
@@ -85,6 +89,7 @@ function getBranchRootId(nodeId: string, nodeMap: Map<string, NodeData>): string
 
 export default function ConnectionsSVG({
   seedId,
+  seedPosition,
   nodes,
   edges,
   visible,
@@ -119,10 +124,14 @@ export default function ConnectionsSVG({
       }}
     >
       {edges.map((edge) => {
-        // Source: seed lives at origin and is not stored in nodeMap.
+        // Source: seed lives at a fixed viewport-center anchor, not in nodeMap.
+        // seedPosition is the world-space coordinate that maps to viewport center
+        // given the current pan (i.e. -pan.x, -pan.y). Falls back to (0,0) when
+        // no pan is in effect.
+        const seedAnchor = seedPosition ?? { x: 0, y: 0 };
         const rawSource =
           edge.source === seedId
-            ? { x: 0, y: 0, depth: 0 }
+            ? { ...seedAnchor, depth: 0 }
             : nodeMap.get(edge.source);
         const targetNode = nodeMap.get(edge.target);
         if (!rawSource || !targetNode) return null;
@@ -133,7 +142,7 @@ export default function ConnectionsSVG({
         const delay = targetNode.delay ?? 0;
 
         // Depth weight: depth-1 = full visibility, deeper = progressively lighter.
-        const depthMul = depth === 1 ? 1.0 : depth === 2 ? 0.7 : 0.52;
+        const depthMul = depth === 1 ? 1.0 : depth === 2 ? 0.65 : 0.44;
 
         // ── Edge state relative to current selection ──────────────────────────
         type EdgeState = "ancestor" | "sibling" | "neutral" | "dimmed";
@@ -165,38 +174,43 @@ export default function ConnectionsSVG({
         // Main line opacity
         const lineOpacity =
           !visible             ? 0 :
-          state === "ancestor" ? 0.94 :
-          state === "sibling"  ? 0.42 :
-          state === "dimmed"   ? 0.04 :
-          emphasize            ? 0.68 * depthMul :
-                                 0.44 * depthMul;
+          state === "ancestor" ? 0.78 :
+          state === "sibling"  ? 0.30 :
+          state === "dimmed"   ? 0.025 :
+          emphasize            ? 0.52 * depthMul :
+                                 0.32 * depthMul;
 
-        // Soft glow behind the main line — kept tight so it doesn't bleed
-        // into the node card area near anchor points.
+        // Soft glow behind the main line — wider and dreamier.
         const glowOpacity =
           !visible             ? 0 :
-          state === "ancestor" ? 0.38 :
-          state === "sibling"  ? 0.13 :
+          state === "ancestor" ? 0.32 :
+          state === "sibling"  ? 0.12 :
           state === "dimmed"   ? 0    :
-          emphasize            ? 0.24 * depthMul :
+          emphasize            ? 0.22 * depthMul :
                                  0.14 * depthMul;
 
-        // Stroke widths — depth-1 is the primary readability tier.
+        // Stroke widths — thinner for a lighter, more fluid feel.
         const lineWidth =
-          state === "ancestor" ? 1.75 :
-          state === "sibling"  ? 1.10 :
-          state === "dimmed"   ? 0.55 :
-          depth === 1          ? 1.55 :
-          depth === 2          ? 1.15 : 0.92;
+          state === "ancestor" ? 1.40 :
+          state === "sibling"  ? 0.90 :
+          state === "dimmed"   ? 0.45 :
+          depth === 1          ? 1.20 :
+          depth === 2          ? 0.90 : 0.68;
 
-        // Tighter blur: less haze near node anchor points, crisper softness.
-        const glowBlur = state === "ancestor" ? 5 : state === "dimmed" ? 4 : 7;
+        // Wider blur for a softer, more atmospheric glow.
+        const glowBlur = state === "ancestor" ? 8 : state === "dimmed" ? 5 : 10;
 
         // Approximate path length for the draw-on animation.
+        // Round to fixed precision so SSR/client emit identical attribute strings.
         const approxLen = Math.hypot(
           targetNode.x - rawSource.x,
           targetNode.y - rawSource.y,
         ) * 1.22;
+        const dashLen = (Math.round(approxLen * 1000) / 1000).toFixed(3);
+
+        // Normalise all floating-point SVG attribute values to fixed-precision
+        // strings so the server-rendered HTML matches the client exactly.
+        const fixN = (n: number, d = 3) => (Math.round(n * 10 ** d) / 10 ** d).toFixed(d);
 
         const isTracing = generationActive && activeSourceNodeId === edge.source;
 
@@ -212,7 +226,7 @@ export default function ConnectionsSVG({
         const finalGlowOpacity = isRevealEdge ? Math.max(glowOpacity,  0.28) : glowOpacity;
         const finalLineWidth   = isRevealEdge ? Math.max(lineWidth,    1.60) : lineWidth;
         // Narrower glow stroke + tighter blur = refined halo, not diffuse bleed.
-        const finalGlowWidth   = finalLineWidth * 4.0;
+        const finalGlowWidth   = finalLineWidth * 5.0;
 
         return (
           <g key={edge.id}>
@@ -220,10 +234,10 @@ export default function ConnectionsSVG({
             <path
               d={path}
               stroke={`rgba(${rgb}, 1)`}
-              strokeWidth={finalGlowWidth}
+              strokeWidth={fixN(finalGlowWidth, 3)}
               strokeLinecap="round"
               fill="none"
-              opacity={finalGlowOpacity}
+              opacity={fixN(finalGlowOpacity, 4)}
               style={{
                 filter: `blur(${glowBlur}px)`,
                 transition: `opacity 0.45s ease ${edgeDrawDelay}s, stroke-width 0.35s var(--ease-smooth)`,
@@ -234,12 +248,12 @@ export default function ConnectionsSVG({
             <path
               d={path}
               stroke={`rgba(${rgb}, 1)`}
-              strokeWidth={finalLineWidth}
+              strokeWidth={fixN(finalLineWidth, 3)}
               strokeLinecap="round"
               fill="none"
-              strokeDasharray={approxLen}
-              strokeDashoffset={visible ? 0 : approxLen}
-              opacity={visible ? finalLineOpacity : 0}
+              strokeDasharray={dashLen}
+              strokeDashoffset={visible ? "0" : dashLen}
+              opacity={fixN(visible ? finalLineOpacity : 0, 4)}
               style={{
                 transition: [
                   `stroke-dashoffset 0.72s var(--ease-out) ${edgeDrawDelay}s`,

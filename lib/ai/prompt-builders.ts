@@ -1,10 +1,25 @@
-import type { PerspectiveType } from "@/types/thought";
+import {
+  CREATIVE_VERTICALS,
+  type CreativeMode,
+  type CreativeVertical,
+  type PerspectiveType,
+} from "@/types/thought";
 
 export interface NearbyNodeContext {
   label: string;
   kind?: string;
+  vertical?: CreativeVertical | null;
   perspective?: PerspectiveType | null;
 }
+
+// Per-mode register framing injected into every prompt.
+// Placed immediately after the persona line so the model
+// calibrates its output style before reading the task.
+const MODE_FRAMING: Record<CreativeMode, string> = {
+  concept:   "Register: abstract and conceptual. Think in themes, patterns, ideas, and symbolic relationships.",
+  visual:    "Register: imagistic and sensory. Think in textures, materials, visual metaphors, aesthetic qualities, light, form, and colour.",
+  emotional: "Register: felt and atmospheric. Think in moods, emotional textures, tone, resonance, and psychological atmosphere.",
+};
 
 function renderNearbyContext(nearbyNodes?: NearbyNodeContext[]): string {
   if (!nearbyNodes || nearbyNodes.length === 0) {
@@ -15,129 +30,122 @@ function renderNearbyContext(nearbyNodes?: NearbyNodeContext[]): string {
     .slice(0, 8)
     .map((node) => {
       const kind = node.kind ?? "unknown";
+      const vertical = node.vertical ? `, vertical: ${node.vertical}` : "";
       const perspective = node.perspective ? `, perspective: ${node.perspective}` : "";
-      return `- ${node.label} (kind: ${kind}${perspective})`;
+      return `- ${node.label} (kind: ${kind}${vertical}${perspective})`;
     })
     .join("\n");
 }
 
-export function buildInitialPrompt(seed: string, nearbyNodes?: NearbyNodeContext[]): string {
+export function buildInitialPrompt(seed: string, nearbyNodes?: NearbyNodeContext[], creativeMode?: CreativeMode): string {
   return [
-    "You are a strategic thinking partner for a visual thought graph.",
-    "Expand the seed into a compact, high-signal map.",
+    "You are a creative director and visual thinker.",
+    ...(creativeMode ? [MODE_FRAMING[creativeMode], ""] : []),
+    "You think in worlds, disciplines, atmospheres, and symbolic systems — not frameworks or strategies.",
+    "Open the seed into a creative world board made of seven distinct verticals.",
     "",
     "Return JSON only.",
     "",
     "Output exactly:",
-    "- seed: 1 reframed core idea",
-    "- related: 3 adjacent ideas",
-    "- challenge: 1 productive tension",
-    "- perspectives: 3 distinct types from user/business/ethical/technical/creative",
+    "- nodes: exactly 7 items",
+    "- one item for each vertical, using each of these exactly once:",
+    `  ${CREATIVE_VERTICALS.join(" / ")}`,
     "",
-    "Quality constraints:",
-    "- labels: 2-6 words, <= 34 chars",
-    "- descriptions: one short sentence, <= 20 words",
-    "- no buzzwords, no hype, no vague filler",
-    "- do not invent facts, numbers, or citations",
-    "- avoid repeating nearby node wording",
+    "Output style — the most important rule:",
+    "- label: 2–4 words max. Fragment, not sentence. Evocative, image-forward, no corporate language.",
+    "- description: always include the field. Use a 1 short line cue, 2–8 words, or an empty string if you want no descriptor.",
+    "- forbidden words: optimize, efficiency, impact, cost, user, strategy, leverage, framework, solution, stakeholder",
+    "- no full sentences in descriptions. No analytical framing. No structured-thinking language.",
+    "- every vertical must interpret the same concept through a different discipline",
+    "- no repetition across verticals. Each node must contribute a distinct piece of the world.",
+    "- write like a creative director building a world, not a consultant making a list",
     "",
-    "Perspective quality:",
-    "- each perspective should change what matters, not just rephrase",
-    "- use concrete viewpoint logic (incentives, constraints, risks, values)",
+    "What good looks like:",
+    "  Input: 'friendship'",
+    "  → Culture: 'rituals of belonging'",
+    "  → Visual: 'soft layered tones'",
+    "  → Sound: 'shared nostalgia loops'",
+    "  → Space: 'intimate dim environments'",
+    "  → Digital: 'visible invisible bonds'",
+    "  → Emotion: 'quiet loyalty'",
+    "  → Narrative: 'growing apart, staying close'",
     "",
-    "Challenge quality:",
-    "- surface a real trade-off or blind spot",
-    "- tension should be useful, not cynical",
-    "",
-    "Mini examples:",
-    "- strong label: 'Invisible onboarding friction'",
-    "- weak label: 'Improving user experience with innovation'",
-    "- strong challenge: 'Early convenience may reduce long-term skill formation.'",
+    "What bad looks like:",
+    "  → label: 'Audience segmentation strategy'  description: 'Evaluating how different groups respond to brand messaging'",
+    "  → label: 'Authentic storytelling approach'  description: 'Building narrative frameworks that resonate with target users'",
     "",
     `Seed: ${seed}`,
-    "Nearby nodes to avoid repeating:",
+    "Nearby ideas to avoid repeating:",
     renderNearbyContext(nearbyNodes),
   ].join("\n");
 }
 
-export function buildExpandPrompt(selectedLabel: string, nearbyNodes?: NearbyNodeContext[]): string {
+export function buildExpandPrompt(
+  selectedLabel: string,
+  selectedVertical: CreativeVertical,
+  nearbyNodes?: NearbyNodeContext[],
+  creativeMode?: CreativeMode,
+): string {
   return [
-    "You are a strategic thinking partner.",
-    "Generate 2-3 adjacent ideas that deepen or extend the selected node.",
+    "You are a creative director.",
+    ...(creativeMode ? [MODE_FRAMING[creativeMode], ""] : []),
+    `Generate deeper directions inside the ${selectedVertical} vertical only.`,
     "",
     "Return JSON only.",
     "",
-    "Quality constraints:",
-    "- labels: 2-6 words, <= 34 chars",
-    "- descriptions: one short sentence, <= 20 words",
-    "- each idea should add a new dimension (constraint, dependency, second-order effect, or opportunity)",
-    "- avoid paraphrasing the selected label",
-    "- avoid factual claims you cannot verify",
+    "Output exactly:",
+    "- nodes: 6 items",
     "",
-    "Mini example:",
-    "- selected: 'AI writing tutor'",
-    "- good adjacent idea: 'Feedback timing shapes confidence'",
-    "- bad adjacent idea: 'Better AI writing tutor features'",
+    "Think in: images, moods, textures, material cues, tensions, symbolic details.",
+    `Every node must stay inside the ${selectedVertical} lens.`,
+    "Do not jump to other verticals.",
+    "Each direction should feel like a deeper facet of the same world, not a new category.",
+    "",
+    "Output style:",
+    "- labels: 2–4 words. Fragment, not sentence.",
+    "- descriptions: always include the field. Use 1 short line only, 2–8 words, or an empty string if you want no descriptor.",
+    "- no corporate language, no analytical framing",
+    "- avoid restating the selected idea",
+    "- keep thematic consistency with the selected node",
+    `- all 6 nodes must clearly belong to ${selectedVertical}`,
+    "",
+    `Examples for ${selectedVertical}:`,
+    selectedVertical === "Sound"
+      ? "  → label: 'hiss in the walls'  description: 'memory caught in static'"
+      : "  → label: 'threshold detail'  description: 'a world revealed by fragments'",
     "",
     "Return only JSON matching the requested schema.",
     "",
-    `Selected node: ${selectedLabel}`,
-    "Nearby nodes to avoid repeating:",
+    `Selected idea: ${selectedLabel}`,
+    `Selected vertical: ${selectedVertical}`,
+    "Nearby ideas to avoid repeating:",
     renderNearbyContext(nearbyNodes),
   ].join("\n");
 }
 
-export function buildChallengePrompt(selectedLabel: string, nearbyNodes?: NearbyNodeContext[]): string {
-  return [
-    "You are a strategic thinking partner.",
-    "Generate 1 counterpoint that productively tests the selected node.",
-    "",
-    "Return JSON only.",
-    "",
-    "Quality constraints:",
-    "- label: 2-6 words, <= 34 chars",
-    "- description: one short sentence, <= 20 words",
-    "- challenge must introduce a real trade-off, hidden cost, or failure mode",
-    "- avoid negativity for its own sake",
-    "- avoid repeating original wording",
-    "- avoid unsupported factual claims",
-    "",
-    "Mini example:",
-    "- weak: 'This might not work.'",
-    "- strong: 'Automation speed may hide errors users no longer know how to detect.'",
-    "",
-    "Return only JSON matching the requested schema.",
-    "",
-    `Selected node: ${selectedLabel}`,
-    "Nearby nodes to avoid repeating:",
-    renderNearbyContext(nearbyNodes),
-  ].join("\n");
+export function buildDirectionPrompt(
+  selectedLabel: string,
+  selectedVertical: CreativeVertical,
+  nearbyNodes?: NearbyNodeContext[],
+  creativeMode?: CreativeMode,
+): string {
+  return buildExpandPrompt(selectedLabel, selectedVertical, nearbyNodes, creativeMode);
 }
 
-export function buildPerspectivePrompt(selectedLabel: string, nearbyNodes?: NearbyNodeContext[]): string {
-  return [
-    "You are a strategic thinking partner.",
-    "Generate 3 reframings from distinct viewpoint types chosen from: user, business, ethical, technical, creative.",
-    "",
-    "Return JSON only.",
-    "",
-    "Quality constraints:",
-    "- pick 3 different perspective types",
-    "- each perspective must change decision criteria, not wording",
-    "- labels: 2-6 words, <= 34 chars",
-    "- descriptions: one short sentence, <= 20 words",
-    "- avoid generic role-play language",
-    "- avoid unsupported factual claims",
-    "",
-    "Mini example:",
-    "- user: 'Cognitive load during first use'",
-    "- business: 'Who pays for long-term guidance'",
-    "- ethical: 'Who is excluded by default settings'",
-    "",
-    "Return only JSON matching the requested schema.",
-    "",
-    `Selected node: ${selectedLabel}`,
-    "Nearby nodes to avoid repeating:",
-    renderNearbyContext(nearbyNodes),
-  ].join("\n");
+export function buildChallengePrompt(
+  selectedLabel: string,
+  selectedVertical: CreativeVertical,
+  nearbyNodes?: NearbyNodeContext[],
+  creativeMode?: CreativeMode,
+): string {
+  return buildExpandPrompt(selectedLabel, selectedVertical, nearbyNodes, creativeMode);
+}
+
+export function buildPerspectivePrompt(
+  selectedLabel: string,
+  selectedVertical: CreativeVertical,
+  nearbyNodes?: NearbyNodeContext[],
+  creativeMode?: CreativeMode,
+): string {
+  return buildExpandPrompt(selectedLabel, selectedVertical, nearbyNodes, creativeMode);
 }

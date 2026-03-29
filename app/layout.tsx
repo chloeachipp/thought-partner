@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Thought Partner",
-  description: "A spatial AI thinking interface — explore ideas in depth",
+  description: "A spatial canvas for exploring ideas, tensions, and creative directions.",
 };
 
 export default function RootLayout({

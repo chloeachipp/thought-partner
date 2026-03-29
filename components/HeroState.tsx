@@ -7,11 +7,11 @@ interface Props {
 }
 
 const SAMPLE_PROMPTS = [
-  "How might AI help people build confidence in unfamiliar skills?",
-  "What would a humane AI learning environment look like?",
-  "How could creativity tools support taste, not just output?",
-  "What social norms should guide AI copilots in schools and workplaces?",
-  "How can we design AI systems that expand agency instead of replacing judgment?",
+  "What does it feel like when a film earns silence?",
+  "Where does a design cross from clarity into coldness?",
+  "When does craft become a constraint on expression?",
+  "What is the visual texture of memory?",
+  "What separates style from voice?",
 ];
 
 export default function HeroState({ onSubmit }: Props) {
@@ -97,7 +97,7 @@ export default function HeroState({ onSubmit }: Props) {
             margin: 0,
           }}
         >
-          Explore ideas
+          Follow the thought.
           <br />
           <span
             style={{
@@ -106,7 +106,7 @@ export default function HeroState({ onSubmit }: Props) {
               fontWeight: 200,
             }}
           >
-            beyond chat.
+            wherever it leads.
           </span>
         </h1>
       </div>
@@ -179,8 +179,8 @@ export default function HeroState({ onSubmit }: Props) {
             rows={1}
             spellCheck={false}
             autoComplete="off"
-            placeholder="Start with a thought, tension, question, or possibility…"
-            aria-label="Enter your thought"
+            placeholder="Start with anything — an image, a feeling, a contradiction…"
+            aria-label="Enter an idea"
             style={{
               display: "block",
               width: "100%",
@@ -244,7 +244,7 @@ export default function HeroState({ onSubmit }: Props) {
                 padding: "7px 18px",
                 letterSpacing: "0.05em",
               }}
-              aria-label="Explore thought"
+              aria-label="Begin exploring"
             >
               Explore
               <svg

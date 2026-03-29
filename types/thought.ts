@@ -5,19 +5,34 @@ export type PerspectiveType =
   | "technical"
   | "creative";
 
+export const CREATIVE_VERTICALS = [
+  "Culture",
+  "Visual",
+  "Sound",
+  "Space",
+  "Digital",
+  "Emotion",
+  "Narrative",
+] as const;
+
+export type CreativeVertical = (typeof CREATIVE_VERTICALS)[number];
+
 export type NodeKind = "seed" | "related" | "challenge" | "perspective";
 
 export type GenerationMode = "provider" | "fallback" | "manual";
 
-export type ThoughtRequestMode = "initial" | "expand" | "challenge" | "perspective";
+export type ThoughtRequestMode = "initial" | "expand" | "challenge" | "perspective" | "direction";
 
 export type EdgeRelation = "expands" | "challenges" | "reframes";
+
+export type CreativeMode = "concept" | "visual" | "emotional";
 
 export interface ThoughtNode {
   id: string;
   label: string;
   description: string;
   kind: NodeKind;
+  vertical?: CreativeVertical | null;
   perspective: PerspectiveType | null;
   x: number;
   y: number;
@@ -56,6 +71,7 @@ export interface NodeContent {
   label: string;
   description: string;
   kind: NodeKind;
+  vertical?: CreativeVertical | null;
   perspective: PerspectiveType | null;
 }
 

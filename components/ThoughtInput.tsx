@@ -89,7 +89,7 @@ export default function ThoughtInput({ value, onChange, onSubmit }: Props) {
               className="type-thought"
               style={{ color: "var(--text-ghost)", fontStyle: "italic" }}
             >
-              What&rsquo;s on your mind?
+              What are you circling?
             </span>
           </div>
         )}
@@ -116,7 +116,7 @@ export default function ThoughtInput({ value, onChange, onSubmit }: Props) {
             minHeight: "48px",
             overflow: "hidden",
           }}
-          aria-label="Enter your thought"
+          aria-label="Enter an idea"
         />
 
         {/* Separator line */}
@@ -145,7 +145,7 @@ export default function ThoughtInput({ value, onChange, onSubmit }: Props) {
         }}
       >
         <span className="type-caption" style={{ color: "var(--text-tertiary)" }}>
-          Press Enter to expand
+          Press Enter to explore
         </span>
         <kbd
           style={{
