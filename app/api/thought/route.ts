@@ -1,428 +1,202 @@
 import { generateObject } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  generateInitialMockGraph,
-  generateInitialVerticalWorld,
-  generateMockVerticalExpansion,
-  generateMockVerticalNode,
-} from "@/lib/ai/mock-generator";
-import { buildExpandPrompt, buildInitialPrompt } from "@/lib/ai/prompt-builders";
+import { generateMockCreativeDirection, generateMockSectionExpand } from "@/lib/ai/mock-generator";
+import { buildInitialPrompt, buildExpandPrompt } from "@/lib/ai/prompt-builders";
 import { getProviderConfig } from "@/lib/ai/provider-config";
-import {
-  CREATIVE_VERTICALS,
-  type CreativeMode,
-  type CreativeVertical,
-  type GenerationMode,
-  type NodeContent,
-  type PerspectiveType,
-  type ThoughtGraphMeta,
-  type ThoughtGraphResponse,
-  type ThoughtRequestMode,
-  type ThoughtStatusMeta,
+import type {
+  CoreThesisContent,
+  NarrativesContent,
+  VisualWorldContent,
+  SpatialWorldContent,
+  SoundWorldContent,
+  ContentSystemContent,
+  ExecutionContent,
+  SectionId,
+  CreativeMode,
 } from "@/types/thought";
 
-const creativeVerticalSchema = z.enum(CREATIVE_VERTICALS);
-const perspectiveTypeSchema = z.enum(["user", "business", "ethical", "technical", "creative"]);
-const legacyInteractionSchema = z.enum(["expands", "challenges", "reframes"]);
-const modeSchema = z.enum(["initial", "expand", "challenge", "perspective", "direction"]);
+// ── Zod schemas ─────────────────────────────────────────────────────────────
+
 const creativeModeSchema = z.enum(["concept", "visual", "emotional"]);
 
-const nearbyNodeSchema = z.object({
-  label: z.string(),
-  kind: z.string().optional(),
-  vertical: creativeVerticalSchema.nullable().optional(),
-  perspective: perspectiveTypeSchema.nullable().optional(),
-});
+const sectionIdSchema = z.enum([
+  "core", "narratives", "visual", "spatial", "sound", "content", "execution",
+]);
 
 const requestSchema = z.union([
   z.object({
-    mode: modeSchema,
-    seed: z.string().optional(),
-    label: z.string().optional(),
-    vertical: creativeVerticalSchema.optional(),
-    nearbyNodes: z.array(nearbyNodeSchema).optional(),
+    mode: z.literal("initial"),
+    seed: z.string().min(1),
     creativeMode: creativeModeSchema.optional(),
   }),
   z.object({
-    mode: z.literal("seed"),
-    seed: z.string(),
-    nearbyNodes: z.array(nearbyNodeSchema).optional(),
-    creativeMode: creativeModeSchema.optional(),
-  }),
-  z.object({
-    mode: z.literal("interaction"),
-    interaction: legacyInteractionSchema,
-    label: z.string(),
-    vertical: creativeVerticalSchema.optional(),
-    nearbyNodes: z.array(nearbyNodeSchema).optional(),
+    mode: z.literal("expand"),
+    sectionId: sectionIdSchema,
+    seed: z.string().min(1),
+    existingContext: z.string(),
     creativeMode: creativeModeSchema.optional(),
   }),
 ]);
 
-const initialNodeOutputSchema = z.object({
-  vertical: creativeVerticalSchema,
-  label: z.string(),
-  description: z.string(),
+// ── Output schemas for generateObject ───────────────────────────────────────
+
+const coreSchema = z.object({
+  thesis: z.string(),
+  mood: z.string(),
 });
 
-const expandNodeOutputSchema = z.object({
-  label: z.string(),
-  description: z.string(),
+const narrativeSchema = z.object({
+  title: z.string(),
+  explanation: z.string(),
+  resonance: z.string(),
 });
 
-const initialOutputSchema = z.object({
-  nodes: z.array(initialNodeOutputSchema).min(7).max(10),
+const narrativesSchema = z.object({
+  directions: z.array(narrativeSchema).min(1).max(5),
 });
 
-const expandOutputSchema = z.object({
-  nodes: z.array(expandNodeOutputSchema).min(4).max(8),
+const visualSchema = z.object({
+  palette: z.array(z.string()).min(3),
+  textures: z.array(z.string()).min(2),
+  lighting: z.string(),
+  framing: z.string(),
 });
+
+const spatialSchema = z.object({
+  environments: z.array(z.string()).min(2),
+  mood: z.string(),
+  symbolism: z.string(),
+});
+
+const soundSchema = z.object({
+  genres: z.array(z.string()).min(2),
+  textures: z.array(z.string()).min(2),
+  references: z.array(z.string()).min(1),
+});
+
+const contentSchema = z.object({
+  formats: z.array(z.string()).min(2),
+  povPrompts: z.array(z.string()).min(2),
+  ideas: z.array(z.string()).min(2),
+  storytelling: z.array(z.string()).min(1),
+});
+
+const executionSchema = z.object({
+  campaigns: z.array(z.string()).min(1),
+  shootConcepts: z.array(z.string()).min(1),
+  assetTypes: z.array(z.string()).min(2),
+});
+
+const fullDeckSchema = z.object({
+  core: coreSchema,
+  narratives: narrativesSchema,
+  visual: visualSchema,
+  spatial: spatialSchema,
+  sound: soundSchema,
+  content: contentSchema,
+  execution: executionSchema,
+});
+
+// Map section IDs to their schemas for expand calls
+const SECTION_SCHEMAS: Record<SectionId, z.ZodType> = {
+  core: coreSchema,
+  narratives: narrativesSchema,
+  visual: visualSchema,
+  spatial: spatialSchema,
+  sound: soundSchema,
+  content: contentSchema,
+  execution: executionSchema,
+};
+
+// ── Response types ──────────────────────────────────────────────────────────
+
+interface CreativeDirectionDeck {
+  core: CoreThesisContent;
+  narratives: NarrativesContent;
+  visual: VisualWorldContent;
+  spatial: SpatialWorldContent;
+  sound: SoundWorldContent;
+  content: ContentSystemContent;
+  execution: ExecutionContent;
+}
 
 type ApiInitialResponse = {
   mode: "initial";
-  nodes: NodeContent[];
-  graph: ThoughtGraphResponse;
-  status: ThoughtStatusMeta;
-  meta: ThoughtGraphMeta;
+  deck: CreativeDirectionDeck;
+  meta: { provider: string | null; fallback: boolean };
 };
 
 type ApiExpandResponse = {
-  mode: Exclude<ThoughtRequestMode, "initial">;
-  nodes: NodeContent[];
-  node: NodeContent;
-  vertical: CreativeVertical;
-  status: ThoughtStatusMeta;
-  meta: ThoughtGraphMeta;
+  mode: "expand";
+  sectionId: SectionId;
+  data: unknown;
+  meta: { provider: string | null; fallback: boolean };
 };
 
 type ApiSuccessResponse = ApiInitialResponse | ApiExpandResponse;
-
-type ErrorResponse = {
-  error: string;
-  message?: string;
-  details?: unknown;
-};
+type ErrorResponse = { error: string; message?: string; details?: unknown };
 
 type ProviderConfig = NonNullable<ReturnType<typeof getProviderConfig>>;
 
-type NearbyNode = z.infer<typeof nearbyNodeSchema>;
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
-type NormalizedRequest = {
-  mode: ThoughtRequestMode;
-  seed?: string;
-  selectedLabel?: string;
-  selectedVertical?: CreativeVertical;
-  nearbyNodes?: NearbyNode[];
-  creativeMode?: CreativeMode;
-};
-
-function toGenerationMode(fallbackUsed: boolean): GenerationMode {
-  return fallbackUsed ? "fallback" : "provider";
-}
-
-function createStatus(
-  mode: ThoughtRequestMode,
-  providerUsed: string | null,
-  fallbackUsed: boolean,
-): ThoughtStatusMeta {
-  return {
-    providerUsed,
-    fallbackUsed,
-    mode,
-  };
-}
-
-function toMeta(status: ThoughtStatusMeta): ThoughtGraphMeta {
-  return {
-    generationMode: toGenerationMode(status.fallbackUsed),
-    provider: status.providerUsed,
-    fallback: status.fallbackUsed,
-  };
-}
-
-function toNodeContent(
-  input: { label: string; description?: string },
-  vertical: CreativeVertical | null,
-): NodeContent {
-  return {
-    label: input.label.trim(),
-    description: (input.description ?? "").trim(),
-    kind: "related",
-    vertical,
-    perspective: null,
-  };
-}
-
-function toLegacyGraph(seed: string, nodes: NodeContent[], meta?: ThoughtGraphMeta): ThoughtGraphResponse {
-  return {
-    seed: {
-      label: seed.trim(),
-      description: "starting point",
-      kind: "seed",
-      vertical: null,
-      perspective: null,
-    },
-    related: nodes.slice(0, 3).map((node) => ({ ...node, kind: "related" })),
-    challenge: {
-      ...(nodes[3] ?? nodes[0] ?? generateMockVerticalNode(seed, "Emotion")),
-      kind: "challenge",
-      perspective: null,
-    },
-    perspectives: nodes.slice(4, 7).map((node) => ({
-      ...node,
-      kind: "perspective",
-      perspective: null,
-    })),
-    meta,
-  };
-}
-
-function normalizeRequest(parsed: z.infer<typeof requestSchema>): NormalizedRequest {
-  if (parsed.mode === "seed") {
-    return {
-      mode: "initial",
-      seed: parsed.seed,
-      nearbyNodes: parsed.nearbyNodes,
-      creativeMode: parsed.creativeMode,
-    };
-  }
-
-  if (parsed.mode === "interaction") {
-    return {
-      mode: parsed.interaction === "expands"
-        ? "expand"
-        : parsed.interaction === "challenges"
-          ? "challenge"
-          : "perspective",
-      selectedLabel: parsed.label,
-      selectedVertical: parsed.vertical,
-      nearbyNodes: parsed.nearbyNodes,
-      creativeMode: parsed.creativeMode,
-    };
-  }
-
-  return {
-    mode: parsed.mode,
-    seed: parsed.seed,
-    selectedLabel: parsed.label,
-    selectedVertical: parsed.vertical,
-    nearbyNodes: parsed.nearbyNodes,
-    creativeMode: parsed.creativeMode,
-  };
-}
-
-function validateNormalizedRequest(normalized: NormalizedRequest): string | null {
-  if (normalized.mode === "initial" && !normalized.seed?.trim()) {
-    return "mode 'initial' requires a non-empty seed.";
-  }
-
-  if (normalized.mode !== "initial" && !normalized.selectedLabel?.trim()) {
-    return `mode '${normalized.mode}' requires a selected node label.`;
-  }
-
-  return null;
-}
-
-function resolveVertical(normalized: NormalizedRequest): CreativeVertical {
-  if (normalized.selectedVertical) {
-    return normalized.selectedVertical;
-  }
-
-  const nearbyMatch = normalized.nearbyNodes?.find(
-    (node) => node.label === normalized.selectedLabel && node.vertical,
-  );
-
-  return nearbyMatch?.vertical ?? "Narrative";
-}
-
-function normalizeInitialNodes(seed: string, rawNodes: Array<z.infer<typeof initialNodeOutputSchema>>): NodeContent[] {
-  const usedLabels = new Set<string>();
-  const byVertical = new Map<CreativeVertical, NodeContent>();
-
-  for (const node of rawNodes) {
-    if (byVertical.has(node.vertical)) continue;
-    const label = node.label.trim();
-    if (!label || usedLabels.has(label.toLowerCase())) continue;
-    usedLabels.add(label.toLowerCase());
-    byVertical.set(node.vertical, toNodeContent(node, node.vertical));
-  }
-
-  return CREATIVE_VERTICALS.map((vertical) => {
-    const existing = byVertical.get(vertical);
-    return existing ?? generateMockVerticalNode(seed, vertical, usedLabels);
-  });
-}
-
-function normalizeExpandNodes(
-  label: string,
-  vertical: CreativeVertical,
-  rawNodes: Array<z.infer<typeof expandNodeOutputSchema>>,
-  count = 6,
-): NodeContent[] {
-  const usedLabels = new Set<string>();
-  const nodes: NodeContent[] = [];
-
-  for (const rawNode of rawNodes) {
-    const trimmed = rawNode.label.trim();
-    if (!trimmed || usedLabels.has(trimmed.toLowerCase())) continue;
-    usedLabels.add(trimmed.toLowerCase());
-    nodes.push(toNodeContent(rawNode, vertical));
-    if (nodes.length >= count) break;
-  }
-
-  const fallback = generateMockVerticalExpansion(label, vertical, count);
-  for (const node of fallback) {
-    if (nodes.length >= count) break;
-    const key = node.label.toLowerCase();
-    if (usedLabels.has(key)) continue;
-    usedLabels.add(key);
-    nodes.push(node);
-  }
-
-  return nodes.slice(0, count);
-}
-
-function isRecoverableProviderError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
+function isRecoverableError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
   const text = `${error.name} ${error.message}`.toLowerCase();
   return [
-    "timeout",
-    "timed out",
-    "rate",
-    "429",
-    "network",
-    "503",
-    "502",
-    "504",
-    "overloaded",
-    "temporarily",
-    "unavailable",
-    "noobjectgenerated",
-  ].some((token) => text.includes(token));
+    "timeout", "timed out", "rate", "429", "network",
+    "503", "502", "504", "overloaded", "temporarily",
+    "unavailable", "noobjectgenerated",
+  ].some((t) => text.includes(t));
 }
 
-function fallbackInitial(seed: string): ApiInitialResponse {
-  const nodes = generateInitialVerticalWorld(seed);
-  const status = createStatus("initial", null, true);
-  const meta = toMeta(status);
+// ── Generation ──────────────────────────────────────────────────────────────
 
-  return {
-    mode: "initial",
-    nodes,
-    graph: toLegacyGraph(seed, nodes, meta),
-    status,
-    meta,
-  };
-}
-
-function fallbackExpand(mode: Exclude<ThoughtRequestMode, "initial">, label: string, vertical: CreativeVertical): ApiExpandResponse {
-  const nodes = generateMockVerticalExpansion(label, vertical, 6);
-  const status = createStatus(mode, null, true);
-
-  return {
-    mode,
-    nodes,
-    node: nodes[0]!,
-    vertical,
-    status,
-    meta: toMeta(status),
-  };
-}
-
-function fallbackByMode(normalized: NormalizedRequest): ApiSuccessResponse {
-  if (normalized.mode === "initial") {
-    return fallbackInitial(normalized.seed ?? "");
-  }
-
-  return fallbackExpand(
-    normalized.mode,
-    normalized.selectedLabel ?? "",
-    resolveVertical(normalized),
-  );
-}
-
-async function generateInitial(
-  providerConfig: ProviderConfig,
+async function generateFullDeck(
+  config: ProviderConfig,
   seed: string,
-  nearbyNodes?: NearbyNode[],
   creativeMode?: CreativeMode,
 ): Promise<ApiInitialResponse> {
   const { object } = await generateObject({
-    model: providerConfig.model,
-    schema: initialOutputSchema,
-    temperature: 0.68,
-    prompt: buildInitialPrompt(seed, nearbyNodes, creativeMode),
+    model: config.model,
+    schema: fullDeckSchema,
+    temperature: 0.72,
+    prompt: buildInitialPrompt(seed, creativeMode),
   });
-
-  const nodes = normalizeInitialNodes(seed, object.nodes);
-  const providerUsed = `${providerConfig.provider}:${providerConfig.modelName}`;
-  const status = createStatus("initial", providerUsed, false);
-  const meta = toMeta(status);
 
   return {
     mode: "initial",
-    nodes,
-    graph: toLegacyGraph(seed, nodes, meta),
-    status,
-    meta,
+    deck: object as CreativeDirectionDeck,
+    meta: { provider: `${config.provider}:${config.modelName}`, fallback: false },
   };
 }
 
-async function generateExpand(
-  providerConfig: ProviderConfig,
-  mode: Exclude<ThoughtRequestMode, "initial">,
-  selectedLabel: string,
-  selectedVertical: CreativeVertical,
-  nearbyNodes?: NearbyNode[],
+async function generateSectionExpand(
+  config: ProviderConfig,
+  sectionId: SectionId,
+  seed: string,
+  existingContext: string,
   creativeMode?: CreativeMode,
 ): Promise<ApiExpandResponse> {
+  const schema = SECTION_SCHEMAS[sectionId];
+
   const { object } = await generateObject({
-    model: providerConfig.model,
-    schema: expandOutputSchema,
+    model: config.model,
+    schema,
     temperature: 0.72,
-    prompt: buildExpandPrompt(selectedLabel, selectedVertical, nearbyNodes, creativeMode),
+    prompt: buildExpandPrompt(sectionId, seed, existingContext, creativeMode),
   });
 
-  const nodes = normalizeExpandNodes(selectedLabel, selectedVertical, object.nodes, 6);
-  const providerUsed = `${providerConfig.provider}:${providerConfig.modelName}`;
-  const status = createStatus(mode, providerUsed, false);
-
   return {
-    mode,
-    nodes,
-    node: nodes[0]!,
-    vertical: selectedVertical,
-    status,
-    meta: toMeta(status),
+    mode: "expand",
+    sectionId,
+    data: object,
+    meta: { provider: `${config.provider}:${config.modelName}`, fallback: false },
   };
 }
 
-async function generateWithProvider(
-  providerConfig: ProviderConfig,
-  normalized: NormalizedRequest,
-): Promise<ApiSuccessResponse> {
-  if (normalized.mode === "initial") {
-    return generateInitial(
-      providerConfig,
-      normalized.seed ?? "",
-      normalized.nearbyNodes,
-      normalized.creativeMode,
-    );
-  }
-
-  return generateExpand(
-    providerConfig,
-    normalized.mode,
-    normalized.selectedLabel ?? "",
-    resolveVertical(normalized),
-    normalized.nearbyNodes,
-    normalized.creativeMode,
-  );
-}
+// ── POST handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
   try {
@@ -431,50 +205,58 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json<ErrorResponse>(
-        {
-          error: "Invalid request payload",
-          details: parsed.error.flatten(),
-        },
+        { error: "Invalid request payload", details: parsed.error.flatten() },
         { status: 400 },
       );
     }
 
-    const normalized = normalizeRequest(parsed.data);
-    const requestError = validateNormalizedRequest(normalized);
+    const config = getProviderConfig();
 
-    if (requestError) {
-      return NextResponse.json<ErrorResponse>(
-        {
-          error: "Invalid request payload",
-          message: requestError,
-        },
-        { status: 400 },
-      );
-    }
+    if (parsed.data.mode === "initial") {
+      const { seed, creativeMode } = parsed.data;
 
-    const providerConfig = getProviderConfig();
-
-    if (!providerConfig) {
-      return NextResponse.json<ApiSuccessResponse>(fallbackByMode(normalized));
-    }
-
-    try {
-      const response = await generateWithProvider(providerConfig, normalized);
-      return NextResponse.json<ApiSuccessResponse>(response);
-    } catch (providerError) {
-      if (isRecoverableProviderError(providerError)) {
-        return NextResponse.json<ApiSuccessResponse>(fallbackByMode(normalized));
+      if (config) {
+        try {
+          const response = await generateFullDeck(config, seed, creativeMode);
+          return NextResponse.json<ApiSuccessResponse>(response);
+        } catch (err) {
+          if (!isRecoverableError(err)) throw err;
+        }
       }
-      throw providerError;
+
+      // Fallback
+      const deck = generateMockCreativeDirection(seed);
+      return NextResponse.json<ApiSuccessResponse>({
+        mode: "initial",
+        deck,
+        meta: { provider: null, fallback: true },
+      });
     }
+
+    // Expand mode
+    const { sectionId, seed, existingContext, creativeMode } = parsed.data;
+
+    if (config) {
+      try {
+        const response = await generateSectionExpand(config, sectionId, seed, existingContext, creativeMode);
+        return NextResponse.json<ApiSuccessResponse>(response);
+      } catch (err) {
+        if (!isRecoverableError(err)) throw err;
+      }
+    }
+
+    // Fallback
+    const data = generateMockSectionExpand(sectionId, seed);
+    return NextResponse.json<ApiSuccessResponse>({
+      mode: "expand",
+      sectionId,
+      data,
+      meta: { provider: null, fallback: true },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown server error";
-
     return NextResponse.json<ErrorResponse>(
-      {
-        error: "Generation failed",
-        message,
-      },
+      { error: "Generation failed", message },
       { status: 500 },
     );
   }

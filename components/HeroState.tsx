@@ -6,12 +6,13 @@ interface Props {
   onSubmit: (thought: string) => void;
 }
 
-const SAMPLE_PROMPTS = [
-  "What does it feel like when a film earns silence?",
-  "Where does a design cross from clarity into coldness?",
-  "When does craft become a constraint on expression?",
-  "What is the visual texture of memory?",
-  "What separates style from voice?",
+const OUTPUT_PREVIEW = [
+  "Narratives",
+  "Visual World",
+  "Spatial Direction",
+  "Sound & Tone",
+  "Content System",
+  "Execution Ideas",
 ];
 
 export default function HeroState({ onSubmit }: Props) {
@@ -47,13 +48,9 @@ export default function HeroState({ onSubmit }: Props) {
     onSubmit(value.trim());
   };
 
-  const useSample = (prompt: string) => {
-    setValue(prompt);
-    textareaRef.current?.focus();
-  };
-
   return (
     <div
+      className="hero-shell"
       style={{
         position: "absolute",
         inset: 0,
@@ -84,10 +81,11 @@ export default function HeroState({ onSubmit }: Props) {
 
       {/* ── Headline ──────────────────────────── */}
       <div
-        className="anim-fade-up"
+        className="anim-fade-up hero-copy"
         style={{ animationDelay: "0.22s", textAlign: "center", marginBottom: 50 }}
       >
         <h1
+          className="hero-title"
           style={{
             fontSize: "clamp(2.2rem, 4.8vw, 3.6rem)",
             fontWeight: 200,
@@ -97,23 +95,23 @@ export default function HeroState({ onSubmit }: Props) {
             margin: 0,
           }}
         >
-          Follow the thought.
-          <br />
-          <span
-            style={{
-              color: "var(--text-secondary)",
-              fontStyle: "italic",
-              fontWeight: 200,
-            }}
-          >
-            wherever it leads.
-          </span>
+          Build the world behind the idea.
         </h1>
+        <p
+          className="type-body hero-subtitle"
+          style={{
+            margin: "16px auto 0",
+            maxWidth: 760,
+            color: "var(--text-secondary)",
+          }}
+        >
+          Turn a single concept into a complete creative direction across visuals, sound, space, and story.
+        </p>
       </div>
 
       {/* ── Input container ───────────────────── */}
       <div
-        className="anim-fade-up"
+        className="anim-fade-up hero-input-wrap"
         style={{
           animationDelay: "0.38s",
           width: "100%",
@@ -121,6 +119,20 @@ export default function HeroState({ onSubmit }: Props) {
           position: "relative",
         }}
       >
+        {/* Faint floating labels around the input */}
+        <span className="hero-floating-label" style={{ top: -30, left: 6, animationDelay: "0.2s" }}>
+          Visual
+        </span>
+        <span className="hero-floating-label" style={{ top: -34, right: 18, animationDelay: "1.2s" }}>
+          Sound
+        </span>
+        <span className="hero-floating-label" style={{ bottom: -28, left: 24, animationDelay: "0.8s" }}>
+          Space
+        </span>
+        <span className="hero-floating-label" style={{ bottom: -30, right: 12, animationDelay: "1.6s" }}>
+          Narrative
+        </span>
+
         {/* Ambient glow — intensifies on focus */}
         <div
           aria-hidden="true"
@@ -135,9 +147,24 @@ export default function HeroState({ onSubmit }: Props) {
             pointerEvents: "none",
           }}
         />
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: "-90px -110px",
+            borderRadius: "50%",
+            background:
+              "radial-gradient(ellipse at center, rgba(80,156,214,0.07) 0%, rgba(180,140,60,0.04) 35%, transparent 72%)",
+            opacity: isActive ? 0.9 : 0.45,
+            transition: "opacity 0.8s ease",
+            pointerEvents: "none",
+            filter: "blur(8px)",
+          }}
+        />
 
         {/* Input card */}
         <div
+          className="hero-input-card"
           style={{
             position: "relative",
             borderRadius: "var(--r-xl)",
@@ -170,6 +197,7 @@ export default function HeroState({ onSubmit }: Props) {
 
           {/* Textarea */}
           <textarea
+            className="hero-textarea"
             ref={textareaRef}
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -179,7 +207,7 @@ export default function HeroState({ onSubmit }: Props) {
             rows={1}
             spellCheck={false}
             autoComplete="off"
-            placeholder="Start with anything — an image, a feeling, a contradiction…"
+            placeholder={"Enter a concept, theme, or mood...\nWe'll build the full creative direction around it."}
             aria-label="Enter an idea"
             style={{
               display: "block",
@@ -204,6 +232,7 @@ export default function HeroState({ onSubmit }: Props) {
 
           {/* Bottom action bar */}
           <div
+            className="hero-action-row"
             style={{
               display: "flex",
               alignItems: "center",
@@ -213,7 +242,7 @@ export default function HeroState({ onSubmit }: Props) {
             }}
           >
             <span
-              className="type-caption"
+              className="type-caption hero-hint"
               style={{
                 color: "var(--text-ghost)",
                 opacity: isActive ? 1 : 0,
@@ -228,7 +257,7 @@ export default function HeroState({ onSubmit }: Props) {
             <button
               onClick={handleSubmit}
               disabled={!hasText}
-              className="btn-pill"
+              className="btn-pill hero-cta"
               style={{
                 opacity: hasText ? 1 : 0,
                 transform: hasText ? "none" : "translateY(4px)",
@@ -246,61 +275,42 @@ export default function HeroState({ onSubmit }: Props) {
               }}
               aria-label="Begin exploring"
             >
-              Explore
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 11 11"
-                fill="none"
-                style={{ opacity: 0.8 }}
-              >
-                <path
-                  d="M2 5.5h7M6.5 3 9 5.5 6.5 8"
-                  stroke="currentColor"
-                  strokeWidth="1.1"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              Build World -&gt;
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── Sample prompts ────────────────────── */}
+      {/* ── Structured output preview ─────────── */}
       <div
-        className="anim-fade-up"
+        className="anim-fade-up hero-output-preview"
         style={{
           animationDelay: "0.55s",
           marginTop: 28,
           display: "flex",
           flexWrap: "wrap",
-          gap: "8px",
+          gap: "14px 22px",
           justifyContent: "center",
-          maxWidth: "640px",
+          maxWidth: "760px",
           opacity: hasText ? 0 : 1,
           transform: hasText ? "translateY(4px)" : "none",
           transition: "opacity 0.35s ease, transform 0.35s ease",
           pointerEvents: hasText ? "none" : "auto",
         }}
       >
-        {SAMPLE_PROMPTS.map((prompt) => (
-          <button
-            key={prompt}
-            onClick={() => useSample(prompt)}
-            className="btn-pill btn-pill-ghost"
+        {OUTPUT_PREVIEW.map((item) => (
+          <span
+            key={item}
+            className="type-label hero-output-label"
             style={{
-              fontSize: "0.6875rem",
-              letterSpacing: "0.02em",
-              padding: "6px 13px",
-              maxWidth: "280px",
-              whiteSpace: "normal",
-              textAlign: "left",
-              lineHeight: 1.45,
+              fontSize: "0.6rem",
+              letterSpacing: "0.18em",
+              color: "var(--text-ghost)",
+              opacity: 0.72,
             }}
           >
-            {prompt}
-          </button>
+            {item}
+          </span>
         ))}
       </div>
     </div>

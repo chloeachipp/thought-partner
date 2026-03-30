@@ -90,3 +90,91 @@ export interface CanvasNode extends ThoughtNode {
 
 export type ThoughtNodeType = NodeKind;
 export type NodeData = CanvasNode;
+// ── Creative Direction Sections ─────────────────────────────────────────────
+
+export interface DirectionSection {
+  id: SectionId;
+  label: string;
+}
+
+export type SectionId =
+  | "core"
+  | "narratives"
+  | "visual"
+  | "spatial"
+  | "sound"
+  | "content"
+  | "execution";
+
+export const DIRECTION_SECTIONS: readonly DirectionSection[] = [
+  { id: "core",       label: "Core Thesis" },
+  { id: "narratives", label: "Narratives" },
+  { id: "visual",     label: "Visual World" },
+  { id: "spatial",    label: "Spatial World" },
+  { id: "sound",      label: "Sound World" },
+  { id: "content",    label: "Content System" },
+  { id: "execution",  label: "Execution" },
+] as const;
+
+// ── Per-section structured content ──────────────────────────────────────────
+
+export interface CoreThesisContent {
+  thesis: string;         // 1–2 sentence emotional summary
+  mood: string;           // e.g. "quiet defiance", "tender unease"
+}
+
+export interface NarrativeDirection {
+  title: string;          // 2–4 words
+  explanation: string;    // short paragraph
+  resonance: string;      // why it resonates culturally/emotionally
+}
+
+export interface NarrativesContent {
+  directions: NarrativeDirection[];
+}
+
+export interface VisualWorldContent {
+  palette: string[];      // colour descriptors
+  textures: string[];     // materials, surfaces
+  lighting: string;       // lighting style
+  framing: string;        // camera / framing style
+}
+
+export interface SpatialWorldContent {
+  environments: string[]; // locations / environments
+  mood: string;           // spatial mood
+  symbolism: string;      // symbolic meaning
+}
+
+export interface SoundWorldContent {
+  genres: string[];       // music genres or moods
+  textures: string[];     // sonic textures
+  references: string[];   // ambient references
+}
+
+export interface ContentSystemContent {
+  formats: string[];      // TikTok / social formats
+  povPrompts: string[];   // POV prompts
+  ideas: string[];        // content ideas
+  storytelling: string[]; // storytelling formats
+}
+
+export interface ExecutionContent {
+  campaigns: string[];    // campaign ideas
+  shootConcepts: string[];// shoot concepts
+  assetTypes: string[];   // video, stills, etc.
+}
+
+export type StructuredSectionContent =
+  | { type: "core"; data: CoreThesisContent }
+  | { type: "narratives"; data: NarrativesContent }
+  | { type: "visual"; data: VisualWorldContent }
+  | { type: "spatial"; data: SpatialWorldContent }
+  | { type: "sound"; data: SoundWorldContent }
+  | { type: "content"; data: ContentSystemContent }
+  | { type: "execution"; data: ExecutionContent };
+
+export interface SectionData {
+  content: StructuredSectionContent | null;
+  loading: boolean;
+}

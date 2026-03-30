@@ -1,5 +1,5 @@
-import ThoughtCanvas from "@/components/ThoughtCanvas";
+import ClientOnlyCreativeDirection from "@/components/ClientOnlyCreativeDirection";
 
 export default function Home() {
-  return <ThoughtCanvas />;
+  return <ClientOnlyCreativeDirection />;
 }
