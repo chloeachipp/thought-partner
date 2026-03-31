@@ -139,6 +139,85 @@ type ErrorResponse = { error: string; message?: string; details?: unknown };
 
 type ProviderConfig = NonNullable<ReturnType<typeof getProviderConfig>>;
 
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 24;
+
+type RateLimitEntry = {
+  count: number;
+  resetAt: number;
+};
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __thoughtRateLimitStore: Map<string, RateLimitEntry> | undefined;
+}
+
+function getRateLimitStore(): Map<string, RateLimitEntry> {
+  if (!globalThis.__thoughtRateLimitStore) {
+    globalThis.__thoughtRateLimitStore = new Map<string, RateLimitEntry>();
+  }
+  return globalThis.__thoughtRateLimitStore;
+}
+
+function getClientKey(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const ip = forwarded.split(",")[0]?.trim();
+    if (ip) return ip;
+  }
+
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+
+  return "unknown";
+}
+
+function checkRateLimit(request: Request): NextResponse<ErrorResponse> | null {
+  if (process.env.NODE_ENV === "development") {
+    return null;
+  }
+
+  const now = Date.now();
+  const store = getRateLimitStore();
+
+  for (const [key, entry] of store.entries()) {
+    if (entry.resetAt <= now) {
+      store.delete(key);
+    }
+  }
+
+  const clientKey = getClientKey(request);
+  const current = store.get(clientKey);
+
+  if (!current || current.resetAt <= now) {
+    store.set(clientKey, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    });
+    return null;
+  }
+
+  if (current.count >= RATE_LIMIT_MAX_REQUESTS) {
+    const retryAfterSec = Math.max(1, Math.ceil((current.resetAt - now) / 1000));
+    return NextResponse.json<ErrorResponse>(
+      {
+        error: "Rate limit exceeded",
+        message: "Too many requests. Please try again shortly.",
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(retryAfterSec),
+        },
+      },
+    );
+  }
+
+  current.count += 1;
+  store.set(clientKey, current);
+  return null;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function isRecoverableError(error: unknown): boolean {
@@ -200,6 +279,11 @@ async function generateSectionExpand(
 
 export async function POST(request: Request) {
   try {
+    const rateLimitResponse = checkRateLimit(request);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const body = await request.json();
     const parsed = requestSchema.safeParse(body);
 

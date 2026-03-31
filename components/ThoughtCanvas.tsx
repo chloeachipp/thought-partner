@@ -108,7 +108,7 @@ export default function ThoughtCanvas() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span className="type-wordmark" style={{ marginRight: 6 }}>Thought Partner</span>
+            <span className="type-wordmark" style={{ marginRight: 6 }}>Creative Direction Engine</span>
             <button className="btn-pill btn-pill-ghost" onClick={reset}>
               New thought
             </button>

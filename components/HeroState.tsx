@@ -7,12 +7,10 @@ interface Props {
 }
 
 const OUTPUT_PREVIEW = [
-  "Narratives",
-  "Visual World",
-  "Spatial Direction",
-  "Sound & Tone",
-  "Content System",
-  "Execution Ideas",
+  "Late-night city energy after a breakup",
+  "Digital identity vs real self",
+  "Escapism in a hyper-connected world",
+  "Romeo & Juliet in a modern city",
 ];
 
 export default function HeroState({ onSubmit }: Props) {
@@ -48,6 +46,11 @@ export default function HeroState({ onSubmit }: Props) {
     onSubmit(value.trim());
   };
 
+  const handlePromptClick = (prompt: string) => {
+    setValue(prompt);
+    textareaRef.current?.focus();
+  };
+
   return (
     <div
       className="hero-shell"
@@ -75,7 +78,7 @@ export default function HeroState({ onSubmit }: Props) {
             color: "var(--accent-dim)",
           }}
         >
-          Thought Partner
+          Creative Direction Engine
         </span>
       </div>
 
@@ -250,35 +253,39 @@ export default function HeroState({ onSubmit }: Props) {
         </div>
       </div>
 
-      {/* ── Structured output preview ─────────── */}
+      {/* ── Curated prompt suggestions ─────────── */}
       <div
-        className="anim-fade-up hero-output-preview"
+        className="anim-fade-up hero-prompt-zone"
         style={{
           animationDelay: "0.55s",
           marginTop: 28,
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "14px 22px",
-          justifyContent: "center",
+          width: "100%",
           maxWidth: "760px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 12,
           opacity: hasText ? 0 : 1,
           transform: hasText ? "translateY(4px)" : "none",
           transition: "opacity 0.35s ease, transform 0.35s ease",
           pointerEvents: hasText ? "none" : "auto",
         }}
       >
+        <span className="type-label hero-prompt-label">Try a direction like:</span>
+
+        <div className="hero-prompt-chips" role="list" aria-label="Curated creative direction prompts">
         {OUTPUT_PREVIEW.map((item) => (
-          <span
+          <button
             key={item}
-            className="type-label hero-output-label"
-            style={{
-              letterSpacing: "0.14em",
-              color: "var(--text-tertiary)",
-            }}
+            type="button"
+            role="listitem"
+            className="hero-prompt-chip"
+            onClick={() => handlePromptClick(item)}
           >
             {item}
-          </span>
+          </button>
         ))}
+        </div>
       </div>
     </div>
   );

@@ -56,7 +56,7 @@ export default function Sidebar({
       {/* Wordmark */}
       <div className="sidebar-header">
         <span className="type-wordmark" style={{ color: "var(--accent-dim)" }}>
-          Thought Partner
+          Creative Direction Engine
         </span>
         <button className="sidebar-reset" onClick={onReset} title="New direction">
           New

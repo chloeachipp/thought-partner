@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Thought Partner",
-  description: "A spatial canvas for exploring ideas, tensions, and creative directions.",
+  title: "Creative Direction Engine",
+  description: "Turn one concept into a complete creative direction across visuals, sound, space, and story.",
 };
 
 export default function RootLayout({

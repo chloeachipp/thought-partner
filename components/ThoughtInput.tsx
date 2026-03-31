@@ -55,7 +55,7 @@ export default function ThoughtInput({ value, onChange, onSubmit }: Props) {
           opacity: 0.8,
         }}
       >
-        Thought Partner
+        Creative Direction Engine
       </p>
 
       {/* ── Input surface ── */}
