@@ -82,7 +82,7 @@ export default function Sidebar({
                 "--section-accent": accent,
               } as React.CSSProperties}
             >
-              <span className="sidebar-item-icon" style={{ color: active ? accent : "var(--text-ghost)" }}>
+              <span className="sidebar-item-icon" style={{ color: active ? accent : "var(--text-tertiary)" }}>
                 {icon}
               </span>
               <span className="sidebar-item-label">{sec.label}</span>
@@ -113,7 +113,7 @@ export default function Sidebar({
             {providerDisplay}
           </span>
           {isFallback && (
-            <span className="type-caption" style={{ color: "var(--text-ghost)", marginLeft: 4 }}>
+            <span className="type-caption" style={{ color: "var(--text-tertiary)", marginLeft: 4 }}>
               Local mode
             </span>
           )}

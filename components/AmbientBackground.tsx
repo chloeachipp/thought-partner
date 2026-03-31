@@ -74,7 +74,7 @@ export default function AmbientBackground({ phase }: Props) {
           top: "-26vw",
           left: "-20vw",
           background:
-            "radial-gradient(ellipse, rgba(30, 50, 200, 0.10) 0%, transparent 58%)",
+            "radial-gradient(ellipse, rgba(30, 50, 200, 0.06) 0%, transparent 58%)",
           animation: "drift-a 48s ease-in-out infinite",
           willChange: "transform",
         }}
@@ -90,7 +90,7 @@ export default function AmbientBackground({ phase }: Props) {
           bottom: "-18vw",
           right: "-16vw",
           background:
-            "radial-gradient(ellipse, rgba(105, 45, 195, 0.09) 0%, transparent 58%)",
+            "radial-gradient(ellipse, rgba(105, 45, 195, 0.05) 0%, transparent 58%)",
           animation: "drift-b 56s ease-in-out infinite",
           willChange: "transform",
         }}
@@ -106,7 +106,7 @@ export default function AmbientBackground({ phase }: Props) {
           top: "14vw",
           left: "24vw",
           background:
-            "radial-gradient(ellipse, rgba(50, 50, 175, 0.065) 0%, transparent 58%)",
+            "radial-gradient(ellipse, rgba(50, 50, 175, 0.04) 0%, transparent 58%)",
           animation: "drift-c 64s ease-in-out infinite",
           willChange: "transform",
         }}
@@ -122,7 +122,7 @@ export default function AmbientBackground({ phase }: Props) {
           top: "55%",
           left: "10%",
           background:
-            "radial-gradient(ellipse, rgba(180, 140, 60, 0.032) 0%, transparent 56%)",
+            "radial-gradient(ellipse, rgba(180, 140, 60, 0.018) 0%, transparent 56%)",
           animation: "drift-a 72s ease-in-out infinite reverse",
           willChange: "transform",
         }}
@@ -139,7 +139,7 @@ export default function AmbientBackground({ phase }: Props) {
           left: "50%",
           transform: "translate(-50%, -50%)",
           background:
-            "radial-gradient(ellipse, rgba(134, 137, 233, 0.038) 0%, transparent 68%)",
+            "radial-gradient(ellipse, rgba(134, 137, 233, 0.025) 0%, transparent 68%)",
           opacity: isHero ? 1 : 0,
           transition: "opacity 1.2s ease",
         }}
@@ -156,7 +156,7 @@ export default function AmbientBackground({ phase }: Props) {
           left: "50%",
           transform: "translate(-50%, -50%)",
           background:
-            "radial-gradient(ellipse, rgba(134, 137, 233, 0.08) 0%, transparent 55%)",
+            "radial-gradient(ellipse, rgba(134, 137, 233, 0.05) 0%, transparent 55%)",
           opacity: isCanvas ? 1 : 0,
           transition: "opacity 1.8s ease",
         }}

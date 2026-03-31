@@ -119,46 +119,18 @@ export default function HeroState({ onSubmit }: Props) {
           position: "relative",
         }}
       >
-        {/* Faint floating labels around the input */}
-        <span className="hero-floating-label" style={{ top: -30, left: 6, animationDelay: "0.2s" }}>
-          Visual
-        </span>
-        <span className="hero-floating-label" style={{ top: -34, right: 18, animationDelay: "1.2s" }}>
-          Sound
-        </span>
-        <span className="hero-floating-label" style={{ bottom: -28, left: 24, animationDelay: "0.8s" }}>
-          Space
-        </span>
-        <span className="hero-floating-label" style={{ bottom: -30, right: 12, animationDelay: "1.6s" }}>
-          Narrative
-        </span>
-
         {/* Ambient glow — intensifies on focus */}
         <div
           aria-hidden="true"
           style={{
             position: "absolute",
-            inset: "-50px -60px",
+            inset: "-60px -80px",
             borderRadius: "50%",
             background:
-              "radial-gradient(ellipse at center, rgba(134,137,233,0.10) 0%, transparent 65%)",
-            opacity: isActive ? 1 : 0,
+              "radial-gradient(ellipse at center, rgba(134,137,233,0.08) 0%, transparent 68%)",
+            opacity: isActive ? 1 : 0.3,
             transition: "opacity 0.7s ease",
             pointerEvents: "none",
-          }}
-        />
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: "-90px -110px",
-            borderRadius: "50%",
-            background:
-              "radial-gradient(ellipse at center, rgba(80,156,214,0.07) 0%, rgba(180,140,60,0.04) 35%, transparent 72%)",
-            opacity: isActive ? 0.9 : 0.45,
-            transition: "opacity 0.8s ease",
-            pointerEvents: "none",
-            filter: "blur(8px)",
           }}
         />
 
@@ -170,16 +142,16 @@ export default function HeroState({ onSubmit }: Props) {
             borderRadius: "var(--r-xl)",
             overflow: "hidden",
             transition:
-              "box-shadow var(--t-slow) var(--ease-smooth), border-color var(--t-slow) var(--ease-smooth)",
+              "box-shadow var(--t-slow) var(--ease-smooth)",
             boxShadow: isActive
-              ? "0 0 0 1px rgba(134,137,233,0.16), 0 20px 58px rgba(0,0,0,0.42), inset 0 0.5px 0 rgba(255,255,255,0.055)"
-              : "0 0 0 1px var(--border-subtle), 0 10px 32px rgba(0,0,0,0.29), inset 0 0.5px 0 rgba(255,255,255,0.035)",
-            background: "rgba(12, 12, 22, 0.72)",
-            backdropFilter: "blur(var(--blur-xl)) saturate(1.6)",
-            WebkitBackdropFilter: "blur(var(--blur-xl)) saturate(1.6)",
+              ? "0 0 0 1.5px rgba(134,137,233,0.55), 0 0 0 4px rgba(134,137,233,0.07), 0 20px 48px rgba(0,0,0,0.44)"
+              : "0 0 0 1.5px rgba(255,255,255,0.12), 0 10px 32px rgba(0,0,0,0.30)",
+            background: "rgba(11, 12, 20, 0.90)",
+            backdropFilter: "blur(var(--blur-xl)) saturate(1.4)",
+            WebkitBackdropFilter: "blur(var(--blur-xl)) saturate(1.4)",
           }}
         >
-          {/* Top shimmer */}
+          {/* Top border line */}
           <div
             aria-hidden="true"
             style={{
@@ -188,10 +160,10 @@ export default function HeroState({ onSubmit }: Props) {
               left: 0,
               right: 0,
               height: "1px",
-              background:
-                "linear-gradient(to right, transparent, rgba(134,137,233,0.18) 28%, rgba(255,255,255,0.08) 50%, rgba(134,137,233,0.18) 72%, transparent)",
-              opacity: isActive ? 1 : 0.35,
-              transition: "opacity 0.6s ease",
+              background: isActive
+                ? "rgba(134,137,233,0.45)"
+                : "rgba(255,255,255,0.10)",
+              transition: "background 0.4s ease",
             }}
           />
 
@@ -263,19 +235,16 @@ export default function HeroState({ onSubmit }: Props) {
                 transform: hasText ? "none" : "translateY(4px)",
                 transition:
                   "opacity 0.3s ease, transform 0.3s var(--ease-out), background var(--t-fast) var(--ease-smooth), border-color var(--t-fast) var(--ease-smooth), color var(--t-fast) var(--ease-smooth)",
-                background: hasText
-                  ? "rgba(134,137,233,0.14)"
-                  : "var(--surface-2)",
-                borderColor: hasText
-                  ? "var(--accent-border)"
-                  : "var(--border-subtle)",
-                color: hasText ? "var(--accent-bright)" : "var(--text-secondary)",
-                padding: "7px 18px",
-                letterSpacing: "0.05em",
+                background: "rgba(134,137,233,0.20)",
+                borderColor: "rgba(134,137,233,0.52)",
+                color: "var(--accent-bright)",
+                padding: "8px 20px",
+                letterSpacing: "0.04em",
+                fontWeight: 500,
               }}
               aria-label="Begin exploring"
             >
-              Build World -&gt;
+              Build World →
             </button>
           </div>
         </div>
@@ -303,10 +272,8 @@ export default function HeroState({ onSubmit }: Props) {
             key={item}
             className="type-label hero-output-label"
             style={{
-              fontSize: "0.6rem",
-              letterSpacing: "0.18em",
-              color: "var(--text-ghost)",
-              opacity: 0.72,
+              letterSpacing: "0.14em",
+              color: "var(--text-tertiary)",
             }}
           >
             {item}
