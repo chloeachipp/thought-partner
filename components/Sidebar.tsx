@@ -31,6 +31,7 @@ interface Props {
   provider: string | null;
   onSelect: (id: SectionId) => void;
   onReset: () => void;
+  onClose?: () => void;
 }
 
 export default function Sidebar({
@@ -40,6 +41,7 @@ export default function Sidebar({
   provider,
   onSelect,
   onReset,
+  onClose,
 }: Props) {
   const isFallback = generationMode === "fallback";
 
@@ -58,9 +60,16 @@ export default function Sidebar({
         <span className="type-wordmark" style={{ color: "var(--accent-dim)" }}>
           Creative Direction Engine
         </span>
-        <button className="sidebar-reset" onClick={onReset} title="New direction">
-          New
-        </button>
+        <div className="sidebar-header-actions">
+          <button className="sidebar-reset" onClick={onReset} title="New direction">
+            New
+          </button>
+          {onClose && (
+            <button className="sidebar-reset" onClick={onClose} title="Close menu">
+              Close
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Section navigation */}

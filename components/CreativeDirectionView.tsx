@@ -39,6 +39,7 @@ export default function CreativeDirectionView() {
   } = useCreativeDirection();
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [latestDraft, setLatestDraft] = useState<CreativeDirectionSnapshot | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isHero = phase === "hero";
   const isLoading = phase === "loading";
@@ -66,6 +67,22 @@ export default function CreativeDirectionView() {
   useEffect(() => {
     setLatestDraft(getLatestDraft());
   }, []);
+
+  useEffect(() => {
+    if (!isWorkspace) {
+      setIsMobileMenuOpen(false);
+    }
+  }, [isWorkspace]);
+
+  const handleSelectSection = (id: typeof activeSection) => {
+    setActiveSection(id);
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleReset = () => {
+    reset();
+    setIsMobileMenuOpen(false);
+  };
 
   const handleSaveDraft = () => {
     const snapshot = createSnapshot({
@@ -152,17 +169,49 @@ export default function CreativeDirectionView() {
           </div>
         )}
 
+        <button
+          type="button"
+          className="btn-pill cd-mobile-menu-trigger"
+          onClick={() => setIsMobileMenuOpen(true)}
+          aria-label="Open section menu"
+        >
+          Sections
+        </button>
+
+        <div
+          className={`cd-mobile-sidebar-layer${isMobileMenuOpen ? " cd-mobile-sidebar-layer-open" : ""}`}
+          aria-hidden={!isMobileMenuOpen}
+        >
+          <button
+            type="button"
+            className="cd-mobile-sidebar-backdrop"
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-label="Close section menu"
+          />
+          <div className="cd-mobile-sidebar-panel">
+            <Sidebar
+              activeSection={activeSection}
+              sections={sections}
+              generationMode={generationMode}
+              provider={provider}
+              onSelect={handleSelectSection}
+              onReset={handleReset}
+              onClose={() => setIsMobileMenuOpen(false)}
+            />
+          </div>
+        </div>
+
         {/* Left sidebar */}
-        <Sidebar
-          activeSection={activeSection}
-          sections={sections}
-          generationMode={generationMode}
-          provider={provider}
-          onSelect={(id) => {
-            setActiveSection(id);
-          }}
-          onReset={reset}
-        />
+        <div className="cd-sidebar-desktop">
+          <Sidebar
+            activeSection={activeSection}
+            sections={sections}
+            generationMode={generationMode}
+            provider={provider}
+            onSelect={handleSelectSection}
+            onReset={handleReset}
+          />
+        </div>
 
         {/* Center panel */}
         <main className="cd-center">

@@ -60,11 +60,6 @@ export default function HeroState({ onSubmit, aiProvider, onProviderChange }: Pr
       style={{
         position: "absolute",
         inset: 0,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "0 24px",
         zIndex: 10,
       }}
     >
