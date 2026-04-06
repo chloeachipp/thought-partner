@@ -2233,6 +2233,14 @@ input::placeholder { color: var(--text-tertiary); }
   letter-spacing: 0.04em;
 }
 
+.export-modal-close-icon {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .export-modal-tabs {
   display: flex;
   gap: 8px;
@@ -2513,6 +2521,12 @@ input::placeholder { color: var(--text-tertiary); }
   .export-modal-tabs {
     padding-left: 18px;
     padding-right: 18px;
+  }
+
+  .export-modal-close-icon {
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 0.95rem;
   }
 
   .brief-preview-header,

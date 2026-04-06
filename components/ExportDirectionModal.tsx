@@ -123,8 +123,14 @@ export default function ExportDirectionModal({
   return (
     <>
       <div className="export-modal-backdrop" onClick={onClose} />
-      <div className="export-modal-shell" role="dialog" aria-modal="true" aria-labelledby="export-direction-title">
-        <div className="export-modal glass-deep">
+      <div
+        className="export-modal-shell"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-direction-title"
+        onClick={onClose}
+      >
+        <div className="export-modal glass-deep" onClick={(event) => event.stopPropagation()}>
           <header className="export-modal-header">
             <div>
               <span className="type-label export-modal-kicker">Export Direction</span>
@@ -135,6 +141,15 @@ export default function ExportDirectionModal({
 
             <div className="export-modal-header-actions">
               {feedback && <span className="export-modal-feedback">{feedback}</span>}
+              <button
+                type="button"
+                className="btn-pill btn-pill-ghost export-modal-close-icon"
+                onClick={onClose}
+                aria-label="Close export direction"
+                title="Close"
+              >
+                ×
+              </button>
               <button type="button" className="btn-pill btn-pill-ghost" onClick={onClose}>
                 Close
               </button>
