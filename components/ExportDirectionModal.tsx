@@ -141,18 +141,20 @@ export default function ExportDirectionModal({
 
             <div className="export-modal-header-actions">
               {feedback && <span className="export-modal-feedback">{feedback}</span>}
-              <button
-                type="button"
-                className="btn-pill btn-pill-ghost export-modal-close-icon"
-                onClick={onClose}
-                aria-label="Close export direction"
-                title="Close"
-              >
-                ×
-              </button>
-              <button type="button" className="btn-pill btn-pill-ghost" onClick={onClose}>
-                Close
-              </button>
+              <div className="export-modal-close-actions">
+                <button
+                  type="button"
+                  className="btn-pill btn-pill-ghost export-modal-close-icon"
+                  onClick={onClose}
+                  aria-label="Close export direction"
+                  title="Close"
+                >
+                  ×
+                </button>
+                <button type="button" className="btn-pill btn-pill-ghost" onClick={onClose}>
+                  Close
+                </button>
+              </div>
             </div>
           </header>
 

@@ -2227,6 +2227,13 @@ input::placeholder { color: var(--text-tertiary); }
   justify-content: flex-end;
 }
 
+.export-modal-close-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
 .export-modal-feedback {
   color: var(--accent-bright);
   font-size: 0.75rem;
@@ -2479,6 +2486,10 @@ input::placeholder { color: var(--text-tertiary); }
 
   .export-modal-header-actions {
     justify-content: space-between;
+  }
+
+  .export-modal-close-actions {
+    margin-left: auto;
   }
 
   .export-session-grid {
