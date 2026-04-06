@@ -26,6 +26,7 @@ export type ThoughtRequestMode = "initial" | "expand" | "challenge" | "perspecti
 export type EdgeRelation = "expands" | "challenges" | "reframes";
 
 export type CreativeMode = "concept" | "visual" | "emotional";
+export type AIProviderChoice = "openai" | "anthropic";
 
 export interface ThoughtNode {
   id: string;

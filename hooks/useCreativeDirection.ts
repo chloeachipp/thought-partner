@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import type { CreativeDirectionSnapshot } from "@/lib/export/direction-export";
 import type {
   CreativeMode,
+  AIProviderChoice,
   SectionData,
   SectionId,
   StructuredSectionContent,
@@ -21,15 +23,18 @@ type Phase = "hero" | "loading" | "workspace";
 
 export interface UseCreativeDirectionReturn {
   phase: Phase;
+  aiProvider: AIProviderChoice;
   seed: string;
   activeSection: SectionId;
   sections: Record<SectionId, SectionData>;
   generationMode: "fallback" | "provider";
   provider: string | null;
   isGenerating: boolean;
+  setAiProvider: (provider: AIProviderChoice) => void;
   setActiveSection: (id: SectionId) => void;
   submitSeed: (text: string, creativeMode?: CreativeMode) => Promise<void>;
   expandSection: (sectionId: SectionId, creativeMode?: CreativeMode) => Promise<void>;
+  restoreSnapshot: (snapshot: CreativeDirectionSnapshot) => void;
   reset: () => void;
 }
 
@@ -54,6 +59,7 @@ function serializeContext(secs: Record<SectionId, SectionData>): string {
 
 export function useCreativeDirection(): UseCreativeDirectionReturn {
   const [phase, setPhase] = useState<Phase>("hero");
+  const [aiProvider, setAiProvider] = useState<AIProviderChoice>("openai");
   const [seed, setSeed] = useState("");
   const [activeSection, setActiveSection] = useState<SectionId>("core");
   const [sections, setSections] = useState<Record<SectionId, SectionData>>(emptySections);
@@ -87,7 +93,7 @@ export function useCreativeDirection(): UseCreativeDirectionReturn {
         const response = await fetch("/api/thought", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "initial", seed: text, creativeMode }),
+          body: JSON.stringify({ mode: "initial", seed: text, creativeMode, provider: aiProvider }),
         });
 
         if (response.ok) {
@@ -125,7 +131,7 @@ export function useCreativeDirection(): UseCreativeDirectionReturn {
       setIsGenerating(false);
       pendingRef.current = false;
     }
-  }, []);
+  }, [aiProvider]);
 
   const expandSection = useCallback(async (sectionId: SectionId, creativeMode?: CreativeMode) => {
     const current = sections[sectionId];
@@ -148,6 +154,7 @@ export function useCreativeDirection(): UseCreativeDirectionReturn {
           seed,
           existingContext,
           creativeMode,
+          provider: aiProvider,
         }),
       });
 
@@ -180,7 +187,7 @@ export function useCreativeDirection(): UseCreativeDirectionReturn {
         [sectionId]: { ...prev[sectionId], loading: false },
       }));
     }
-  }, [sections, seed]);
+  }, [sections, seed, aiProvider]);
 
   const reset = useCallback(() => {
     setPhase("hero");
@@ -193,17 +200,32 @@ export function useCreativeDirection(): UseCreativeDirectionReturn {
     pendingRef.current = false;
   }, []);
 
+  const restoreSnapshot = useCallback((snapshot: CreativeDirectionSnapshot) => {
+    setAiProvider(snapshot.aiProvider);
+    setSeed(snapshot.seed);
+    setActiveSection(snapshot.activeSection);
+    setSections(snapshot.sections);
+    setGenerationMode(snapshot.generationMode);
+    setProvider(snapshot.provider);
+    setPhase("workspace");
+    setIsGenerating(false);
+    pendingRef.current = false;
+  }, []);
+
   return {
     phase,
+    aiProvider,
     seed,
     activeSection,
     sections,
     generationMode,
     provider,
     isGenerating,
+    setAiProvider,
     setActiveSection,
     submitSeed,
     expandSection,
+    restoreSnapshot,
     reset,
   };
 }

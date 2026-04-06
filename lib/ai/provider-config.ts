@@ -14,8 +14,8 @@ function normalizeProvider(value: string | undefined): SupportedProvider {
   return value?.toLowerCase() === "anthropic" ? "anthropic" : "openai";
 }
 
-export function getProviderConfig(): ProviderConfigResult | null {
-  const provider = normalizeProvider(process.env.AI_PROVIDER);
+export function getProviderConfig(preferredProvider?: SupportedProvider): ProviderConfigResult | null {
+  const provider = preferredProvider ?? normalizeProvider(process.env.AI_PROVIDER);
 
   if (provider === "anthropic") {
     const apiKey = process.env.ANTHROPIC_API_KEY;

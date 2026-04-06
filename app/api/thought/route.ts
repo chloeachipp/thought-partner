@@ -14,11 +14,13 @@ import type {
   ExecutionContent,
   SectionId,
   CreativeMode,
+  AIProviderChoice,
 } from "@/types/thought";
 
 // ── Zod schemas ─────────────────────────────────────────────────────────────
 
 const creativeModeSchema = z.enum(["concept", "visual", "emotional"]);
+const providerSchema = z.enum(["openai", "anthropic"]);
 
 const sectionIdSchema = z.enum([
   "core", "narratives", "visual", "spatial", "sound", "content", "execution",
@@ -29,6 +31,7 @@ const requestSchema = z.union([
     mode: z.literal("initial"),
     seed: z.string().min(1),
     creativeMode: creativeModeSchema.optional(),
+    provider: providerSchema.optional(),
   }),
   z.object({
     mode: z.literal("expand"),
@@ -36,6 +39,7 @@ const requestSchema = z.union([
     seed: z.string().min(1),
     existingContext: z.string(),
     creativeMode: creativeModeSchema.optional(),
+    provider: providerSchema.optional(),
   }),
 ]);
 
@@ -53,39 +57,39 @@ const narrativeSchema = z.object({
 });
 
 const narrativesSchema = z.object({
-  directions: z.array(narrativeSchema).min(1).max(5),
+  directions: z.array(narrativeSchema).min(1),
 });
 
 const visualSchema = z.object({
-  palette: z.array(z.string()).min(3),
-  textures: z.array(z.string()).min(2),
+  palette: z.array(z.string()).min(1),
+  textures: z.array(z.string()).min(1),
   lighting: z.string(),
   framing: z.string(),
 });
 
 const spatialSchema = z.object({
-  environments: z.array(z.string()).min(2),
+  environments: z.array(z.string()).min(1),
   mood: z.string(),
   symbolism: z.string(),
 });
 
 const soundSchema = z.object({
-  genres: z.array(z.string()).min(2),
-  textures: z.array(z.string()).min(2),
+  genres: z.array(z.string()).min(1),
+  textures: z.array(z.string()).min(1),
   references: z.array(z.string()).min(1),
 });
 
 const contentSchema = z.object({
-  formats: z.array(z.string()).min(2),
-  povPrompts: z.array(z.string()).min(2),
-  ideas: z.array(z.string()).min(2),
+  formats: z.array(z.string()).min(1),
+  povPrompts: z.array(z.string()).min(1),
+  ideas: z.array(z.string()).min(1),
   storytelling: z.array(z.string()).min(1),
 });
 
 const executionSchema = z.object({
   campaigns: z.array(z.string()).min(1),
   shootConcepts: z.array(z.string()).min(1),
-  assetTypes: z.array(z.string()).min(2),
+  assetTypes: z.array(z.string()).min(1),
 });
 
 const fullDeckSchema = z.object({
@@ -294,7 +298,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const config = getProviderConfig();
+    const requestedProvider = parsed.data.provider as AIProviderChoice | undefined;
+    const config = getProviderConfig(requestedProvider);
 
     if (parsed.data.mode === "initial") {
       const { seed, creativeMode } = parsed.data;

@@ -1,9 +1,12 @@
 "use client";
 
 import { useRef, useEffect, KeyboardEvent, useState } from "react";
+import type { AIProviderChoice } from "@/types/thought";
 
 interface Props {
   onSubmit: (thought: string) => void;
+  aiProvider: AIProviderChoice;
+  onProviderChange: (provider: AIProviderChoice) => void;
 }
 
 const OUTPUT_PREVIEW = [
@@ -13,7 +16,7 @@ const OUTPUT_PREVIEW = [
   "Romeo & Juliet in a modern city",
 ];
 
-export default function HeroState({ onSubmit }: Props) {
+export default function HeroState({ onSubmit, aiProvider, onProviderChange }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [value, setValue] = useState("");
   const [focused, setFocused] = useState(false);
@@ -65,7 +68,35 @@ export default function HeroState({ onSubmit }: Props) {
         zIndex: 10,
       }}
     >
-      {/* ── Product name ──────────────────────── */}
+      {/* ── AI Provider Switch ──────────────────── */}
+      <div 
+        className="hero-provider-switch-wrap anim-fade-down" 
+        style={{ animationDelay: "0.08s" }}
+      >
+        <div className="hero-provider-switch" role="group" aria-label="AI provider selection">
+          <button
+            type="button"
+            className="hero-provider-track"
+            role="switch"
+            aria-checked={aiProvider === "anthropic"}
+            aria-label={`AI provider: currently ${aiProvider}`}
+            onClick={() => onProviderChange(aiProvider === "openai" ? "anthropic" : "openai")}
+          >
+            {/* Track background */}
+            <span className="hero-provider-track-bg" />
+            
+            {/* Sliding knob */}
+            <span className="hero-provider-knob" data-provider={aiProvider} />
+            
+            {/* Label text */}
+            <span className="hero-provider-labels">
+              <span className="hero-provider-label hero-provider-label-left">OpenAI</span>
+              <span className="hero-provider-label hero-provider-label-right">Anthropic</span>
+            </span>
+          </button>
+        </div>
+      </div>
+
       <div
         className="anim-fade-down"
         style={{ animationDelay: "0.1s", textAlign: "center", marginBottom: 14 }}

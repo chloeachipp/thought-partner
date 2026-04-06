@@ -1,11 +1,20 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import HeroState from "./HeroState";
 import Sidebar from "./Sidebar";
 import CorePanel from "./CorePanel";
 import SectionPanel from "./SectionPanel";
+import ExportDirectionModal from "./ExportDirectionModal";
 import { useCreativeDirection } from "@/hooks/useCreativeDirection";
+import {
+  createSnapshot,
+  hasDirectionContent,
+  duplicateSnapshot,
+  type CreativeDirectionSnapshot,
+} from "@/lib/export/direction-export";
+import { duplicateDraft, getLatestDraft, saveDraft } from "@/lib/export/session-drafts";
 
 const AmbientBackground = dynamic(() => import("./AmbientBackground"), {
   ssr: false,
@@ -14,25 +23,82 @@ const AmbientBackground = dynamic(() => import("./AmbientBackground"), {
 export default function CreativeDirectionView() {
   const {
     phase,
+    aiProvider,
     seed,
     activeSection,
     sections,
     generationMode,
     provider,
     isGenerating,
+    setAiProvider,
     setActiveSection,
     submitSeed,
     expandSection,
+    restoreSnapshot,
     reset,
   } = useCreativeDirection();
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [latestDraft, setLatestDraft] = useState<CreativeDirectionSnapshot | null>(null);
 
   const isHero = phase === "hero";
   const isLoading = phase === "loading";
   const isWorkspace = phase === "workspace";
+  const canExport = isWorkspace && hasDirectionContent(sections);
 
   const sectionData = sections[activeSection] ?? {
     content: null,
     loading: false,
+  };
+
+  const exportSnapshot = useMemo(() => ({
+    version: 1 as const,
+    id: `live-${seed || "direction"}`,
+    seed,
+    aiProvider,
+    activeSection,
+    generationMode,
+    provider,
+    sections,
+    savedAt: new Date().toISOString(),
+    duplicatedFrom: null,
+  }), [activeSection, aiProvider, generationMode, provider, sections, seed]);
+
+  useEffect(() => {
+    setLatestDraft(getLatestDraft());
+  }, []);
+
+  const handleSaveDraft = () => {
+    const snapshot = createSnapshot({
+      seed,
+      aiProvider,
+      activeSection,
+      generationMode,
+      provider,
+      sections,
+    });
+    const drafts = saveDraft(snapshot);
+    setLatestDraft(drafts[0] ?? null);
+  };
+
+  const handleDuplicateWorld = () => {
+    const snapshot = duplicateSnapshot(createSnapshot({
+      seed,
+      aiProvider,
+      activeSection,
+      generationMode,
+      provider,
+      sections,
+    }));
+    const drafts = duplicateDraft(snapshot);
+    setLatestDraft(drafts[0] ?? null);
+  };
+
+  const handleRestoreDraft = () => {
+    const draft = getLatestDraft();
+    if (!draft) return;
+    restoreSnapshot(draft);
+    setLatestDraft(draft);
+    setIsExportOpen(false);
   };
 
   return (
@@ -59,7 +125,11 @@ export default function CreativeDirectionView() {
           filter: isHero ? "none" : "blur(5px)",
         }}
       >
-        <HeroState onSubmit={(text) => submitSeed(text)} />
+        <HeroState
+          onSubmit={(text) => submitSeed(text)}
+          aiProvider={aiProvider}
+          onProviderChange={setAiProvider}
+        />
       </div>
 
       {/* ── Workspace (3-column layout) ──────────────────── */}
@@ -70,6 +140,18 @@ export default function CreativeDirectionView() {
           pointerEvents: isWorkspace ? "auto" : "none",
         }}
       >
+        {canExport && (
+          <div className="cd-workspace-actions">
+            <button
+              type="button"
+              className="btn-pill btn-pill-accent cd-export-trigger"
+              onClick={() => setIsExportOpen(true)}
+            >
+              Export Direction
+            </button>
+          </div>
+        )}
+
         {/* Left sidebar */}
         <Sidebar
           activeSection={activeSection}
@@ -100,27 +182,36 @@ export default function CreativeDirectionView() {
         </div>
       </div>
 
+      {canExport && (
+        <ExportDirectionModal
+          isOpen={isExportOpen}
+          snapshot={exportSnapshot}
+          latestDraft={latestDraft}
+          onClose={() => setIsExportOpen(false)}
+          onSaveDraft={handleSaveDraft}
+          onDuplicateWorld={handleDuplicateWorld}
+          onRestoreDraft={handleRestoreDraft}
+        />
+      )}
+
       {/* Hero footer */}
-      <div
-        className="cd-hero-footer"
-        style={{
-          opacity: isHero ? 1 : 0,
-        }}
-      >
-        <div
-          className="type-caption"
-          style={{
-            color: "var(--text-ghost)",
-            display: "flex",
-            gap: 16,
-            alignItems: "center",
-          }}
-        >
-          <span style={{ fontStyle: "italic", opacity: 0.6 }}>
-            creative direction, structured
-          </span>
+      {isHero && (
+        <div className="cd-hero-footer">
+          <div
+            className="type-caption"
+            style={{
+              color: "var(--text-ghost)",
+              display: "flex",
+              gap: 16,
+              alignItems: "center",
+            }}
+          >
+            <span style={{ fontStyle: "italic", opacity: 0.6 }}>
+              creative direction, structured
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

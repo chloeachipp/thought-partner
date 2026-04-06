@@ -75,7 +75,11 @@ export default function ThoughtCanvas() {
           pointerEvents: isHero ? "auto" : "none",
         }}
       >
-        <HeroState onSubmit={(text) => submitSeed(text, creativeMode)} />
+        <HeroState
+          onSubmit={(text) => submitSeed(text, creativeMode)}
+          aiProvider="openai"
+          onProviderChange={() => {}}
+        />
       </div>
 
       {/* ── Canvas ───────────────────────────────────────────── */}
