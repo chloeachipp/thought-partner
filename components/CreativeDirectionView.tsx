@@ -152,6 +152,7 @@ export default function CreativeDirectionView() {
       {/* ── Workspace (3-column layout) ──────────────────── */}
       <div
         className="cd-workspace-layer"
+        data-active-section={activeSection}
         style={{
           opacity: isWorkspace ? 1 : 0,
           pointerEvents: isWorkspace ? "auto" : "none",

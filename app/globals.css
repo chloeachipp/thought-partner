@@ -1583,6 +1583,14 @@ input::placeholder { color: var(--text-tertiary); }
     overflow: visible;
   }
 
+  .cd-workspace-layer[data-active-section="core"] .cd-center {
+    display: block;
+  }
+
+  .cd-workspace-layer:not([data-active-section="core"]) .cd-center {
+    display: none;
+  }
+
   .core-panel {
     max-width: none;
     gap: 18px;
