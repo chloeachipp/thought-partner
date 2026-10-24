@@ -86,3 +86,12 @@ This keeps model choice flexible while preserving consistent product behavior.
 Thought Partner is not an AI assistant with creative features bolted on.
 
 It is a design-led creative operating layer: a focused set of AI-native tools for shaping ideas before they become production artifacts.
+
+## Access Protection
+
+The whole app (pages and API routes) is protected by HTTP Basic Auth via `proxy.ts`.
+
+- `SITE_PASSWORD` — required. If it is not set, every request is blocked with a 503, so the AI API routes can never be called anonymously.
+- `SITE_USERNAME` — optional, defaults to `admin`.
+
+Set these in `.env.local` locally and in your hosting provider's environment variables (e.g. Vercel → Project Settings → Environment Variables), then redeploy.
